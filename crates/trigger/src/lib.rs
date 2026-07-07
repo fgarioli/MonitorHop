@@ -14,4 +14,5 @@ pub trait TriggerSource {
 // TODO(v2): hidpp_receiver.rs — hidapi + HID++ 1.0/2.0 parsing, notification
 // 0x41 + feature 0x1814 "Change Host" (see DECISIONS.md #6, #8).
 
+#[cfg(windows)]
 pub mod usb_hotplug;

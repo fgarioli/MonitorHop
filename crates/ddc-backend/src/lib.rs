@@ -11,5 +11,7 @@ pub trait DdcBackend {
 // TODO(v2): linux_ddcutil.rs — wrapper over ddcutil/i2c-dev, which already
 // supports --i2c-source-addr natively (see DECISIONS.md #9).
 
+#[cfg(windows)]
 pub mod windows_generic;
+#[cfg(windows)]
 pub mod windows_nvapi;
