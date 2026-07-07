@@ -155,7 +155,10 @@ fn run_message_loop(usb_device: String, sender: Sender<TriggerEvent>) -> Result<
     unsafe {
         let mut msg: MSG = std::mem::zeroed();
         loop {
-            let val = GetMessageW(&mut msg, hwnd, 0, 0);
+            // `WM_QUIT` is a thread message posted with hwnd=NULL (see `PostQuitMessage`
+            // above); passing our specific `hwnd` here would filter it out and make the
+            // `WM_DESTROY` shutdown path unreachable.
+            let val = GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0);
             if val == 0 {
                 break;
             }
