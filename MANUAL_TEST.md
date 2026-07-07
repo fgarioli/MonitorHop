@@ -13,7 +13,9 @@ after `cargo build --workspace` succeeds.
 
 ## Steps
 
-1. Run the daemon with debug logging:
+1. Run the daemon with debug logging **from the repo root** (both
+   `display-switch.ini` and `tools/writeValueToDisplay.exe` are resolved
+   relative to the current working directory, not the built binary):
    ```
    cargo run -p kvm-switch-daemon -- --debug
    ```
@@ -21,7 +23,7 @@ after `cargo build --workspace` succeeds.
    toggle the USB switch so the watched device (`17e9:6000`) connects to the
    Windows host's USB bus.
 3. Observe in the daemon's log output:
-   - a log line noting the device was added to `current_devices`
+   - `USB device state changed, emitting HostGainedFocus for device ...`
    - `Display switched to ... for Connect`
 4. Confirm the monitor switches to HDMI1 (Mac) within a few seconds.
 5. Repeat steps 2-4 five times in a row to confirm reliability (per
