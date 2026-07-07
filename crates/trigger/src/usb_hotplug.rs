@@ -79,6 +79,7 @@ impl WindowState {
             }
         };
         for event in diff_to_events(&self.current_devices, &new_devices, &self.usb_device) {
+            log::debug!("USB device state changed, emitting {:?} for device {}", event, self.usb_device);
             let _ = self.sender.send(event);
         }
         self.current_devices = new_devices;

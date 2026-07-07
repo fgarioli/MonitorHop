@@ -1,11 +1,18 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use ddc_backend::windows_nvapi::NvapiBackend;
 use kvm_core::config::Configuration;
+
+#[cfg(windows)]
+use ddc_backend::windows_nvapi::NvapiBackend;
+#[cfg(windows)]
 use kvm_core::orchestrator;
+#[cfg(windows)]
 use power_fallback::windows_monitorpower::WindowsMonitorPower;
+#[cfg(windows)]
 use trigger::usb_hotplug::UsbHotplugTrigger;
+#[cfg(windows)]
 use trigger::TriggerSource;
+#[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
 #[derive(Parser, Debug)]
@@ -22,6 +29,7 @@ struct Args {
 
 /// Re-attach the console if the parent process has one, so log output shows
 /// up when run from the command line.
+#[cfg(windows)]
 fn attach_console() {
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS);
@@ -35,16 +43,16 @@ fn init_logging(debug: bool) -> Result<()> {
         .context("failed to initialize logging")
 }
 
-/// Resolves `tools/writeValueToDisplay.exe` relative to the daemon binary's
-/// own directory (see `docs/superpowers/specs/2026-07-06-kvm-switch-fork-mvp-design.md`).
+/// Resolves `tools/writeValueToDisplay.exe` relative to the current working
+/// directory, matching the same CWD-relative convention already used for the
+/// config file default (`display-switch.ini`). This MVP is intended to be run
+/// via `cargo run` (or otherwise) from the repo root, per `MANUAL_TEST.md`.
+#[cfg(windows)]
 fn default_exe_path() -> Result<std::path::PathBuf> {
-    let mut path = std::env::current_exe().context("failed to locate daemon executable")?;
-    path.pop();
-    path.push("tools");
-    path.push("writeValueToDisplay.exe");
-    Ok(path)
+    Ok(std::path::PathBuf::from("tools/writeValueToDisplay.exe"))
 }
 
+#[cfg(windows)]
 fn main() -> Result<()> {
     attach_console();
     let args = Args::parse();
@@ -63,4 +71,10 @@ fn main() -> Result<()> {
         orchestrator::handle_event(event, &config, &ddc_backend, &power_fallback);
     }
     Ok(())
+}
+
+#[cfg(not(windows))]
+fn main() {
+    eprintln!("kvm-switch-daemon currently only supports Windows.");
+    std::process::exit(1);
 }
