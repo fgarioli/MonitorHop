@@ -9,6 +9,8 @@ use tauri::{Emitter, Manager};
 use trigger::usb_hotplug::UsbHotplugTrigger;
 use trigger::{TriggerEvent, TriggerSource};
 
+mod commands;
+
 pub struct AppState {
     pub events: Mutex<Sender<DaemonEvent>>,
     /// Filled in by Task 9's tray setup once the menu is built; `None` until
@@ -17,7 +19,7 @@ pub struct AppState {
     pub mxkeys_status_item: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
 
-fn config_path() -> std::path::PathBuf {
+pub(crate) fn config_path() -> std::path::PathBuf {
     std::path::PathBuf::from("kvm-switch-config.json")
 }
 
@@ -105,6 +107,14 @@ fn main() {
             }
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            commands::list_usb_devices,
+            commands::list_monitors,
+            commands::list_inputs,
+            commands::save_config,
+            commands::load_config,
+            commands::switch_input,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
