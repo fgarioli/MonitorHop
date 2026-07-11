@@ -105,7 +105,72 @@ fn main() {
                     });
                 }
             }
+
+            {
+                use ddc_backend::MonitorReader;
+                use kvm_core::config::InputSource;
+                use tauri::menu::{IsMenuItem, Menu, MenuItem};
+                use tauri::tray::TrayIconBuilder;
+
+                let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
+                let status_i = MenuItem::with_id(app, "mxkeys-status", "MX Keys: unknown", false, None::<&str>)?;
+                *app.state::<AppState>().mxkeys_status_item.lock().unwrap() = Some(status_i.clone());
+
+                // `Menu::with_items` wants `&[&dyn IsMenuItem<Wry>]`; keep the
+                // concrete `MenuItem<Wry>`s owned here and build trait-object
+                // refs into `item_refs` below once the full set is known.
+                let mut items: Vec<MenuItem<tauri::Wry>> = vec![open_i, status_i];
+
+                if let Some(config) = config.clone() {
+                    if let Ok(codes) = ddc_backend::ddchi_reader::DdcHiMonitorReader.input_codes(config.display_index()) {
+                        for code in codes {
+                            let id = format!("switch:{code:#04x}");
+                            let label = format!("Switch to {code:#04x}");
+                            items.push(MenuItem::with_id(app, id, label, true, None::<&str>)?);
+                        }
+                    }
+                }
+
+                items.push(MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?);
+
+                let item_refs: Vec<&dyn IsMenuItem<tauri::Wry>> =
+                    items.iter().map(|item| item as &dyn IsMenuItem<tauri::Wry>).collect();
+                let menu = Menu::with_items(app, &item_refs)?;
+
+                TrayIconBuilder::new()
+                    .menu(&menu)
+                    .show_menu_on_left_click(true)
+                    .on_menu_event(|app, event| {
+                        let id = event.id.as_ref();
+                        match id {
+                            "open" => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                            "quit" => app.exit(0),
+                            id if id.starts_with("switch:") => {
+                                if let Ok(value) = u16::from_str_radix(id.trim_start_matches("switch:0x"), 16) {
+                                    let state = app.state::<AppState>();
+                                    let events = state.events.lock().unwrap();
+                                    let _ = events.send(DaemonEvent::ManualSwitch(InputSource::Raw(value)));
+                                }
+                            }
+                            _ => {}
+                        }
+                    })
+                    .build(app)?;
+            }
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_usb_devices,
