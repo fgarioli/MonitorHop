@@ -10,6 +10,7 @@ pub struct SwitchTarget {
     pub display_index: u32,
     pub input_source: InputSource,
     pub source_addr: Option<u8>,
+    pub vcp_code: u8,
 }
 
 pub fn resolve(config: &Configuration, direction: SwitchDirection) -> Option<SwitchTarget> {
@@ -21,6 +22,7 @@ pub fn resolve(config: &Configuration, direction: SwitchDirection) -> Option<Swi
         display_index: config.display_index(),
         input_source,
         source_addr: config.on_usb_connect_source_addr,
+        vcp_code: config.vcp_code(),
     })
 }
 
@@ -29,38 +31,25 @@ mod tests {
     use super::*;
     use crate::config::Configuration;
 
-    fn load(config_str: &str) -> Configuration {
-        config::Config::builder()
-            .add_source(config::File::from_str(config_str, config::FileFormat::Ini))
-            .build()
-            .unwrap()
-            .try_deserialize()
-            .unwrap()
-    }
-
     #[test]
     fn resolves_connect_target_from_config() {
-        let config = load(
-            r#"
-            usb_device = "17e9:6000"
-            on_usb_connect = "Hdmi1"
-            on_usb_connect_source_addr = "0x50"
-        "#,
-        );
+        let config: Configuration = serde_json::from_str(
+            r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1", "on_usb_connect_source_addr": 80}"#,
+        )
+        .unwrap();
         let target = resolve(&config, SwitchDirection::Connect).unwrap();
         assert_eq!(target.display_index, 0);
         assert_eq!(target.input_source.value(), 0x11);
         assert_eq!(target.source_addr, Some(0x50));
+        assert_eq!(target.vcp_code, 0x60);
     }
 
     #[test]
     fn disconnect_with_no_config_resolves_to_none() {
-        let config = load(
-            r#"
-            usb_device = "17e9:6000"
-            on_usb_connect = "Hdmi1"
-        "#,
-        );
+        let config: Configuration = serde_json::from_str(
+            r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1"}"#,
+        )
+        .unwrap();
         assert!(resolve(&config, SwitchDirection::Disconnect).is_none());
     }
 }
