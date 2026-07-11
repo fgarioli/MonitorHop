@@ -32,9 +32,6 @@ pub trait MonitorReader {
 pub mod capabilities;
 pub use capabilities::parse_input_codes;
 
-// TODO(macos): macos_ioavservice.rs — IOAVServiceReadI2C/WriteI2C backend,
-// blocked on Spike #2 (see DECISIONS.md #5, #7). Implemented design/type-check
-// only in this plan's Task 9.
 // TODO(v2): linux_ddcutil.rs — wrapper over ddcutil/i2c-dev, which already
 // supports --i2c-source-addr natively (see DECISIONS.md #9). Out of scope.
 
@@ -45,3 +42,6 @@ pub mod ddchi_reader;
 pub mod windows_generic;
 #[cfg(windows)]
 pub mod windows_nvapi;
+
+#[cfg(target_os = "macos")]
+pub mod macos_ioavservice;

@@ -9,3 +9,6 @@ log = "0.4"
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 ddc-hi = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ddc-macos = "0.2.2"

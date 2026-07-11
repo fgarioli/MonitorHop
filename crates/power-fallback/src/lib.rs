@@ -4,8 +4,7 @@ pub trait PowerFallback {
     fn blank_and_restore(&self) -> Result<()>;
 }
 
-// TODO(macos): macos_pmset.rs — `pmset displaysleepnow` + wake, waits on the
-// macOS DDC backend itself (see DECISIONS.md #8).
-
 #[cfg(windows)]
 pub mod windows_monitorpower;
+#[cfg(target_os = "macos")]
+pub mod macos_pmset;

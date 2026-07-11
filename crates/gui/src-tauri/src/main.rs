@@ -1,12 +1,9 @@
 use anyhow::{Context, Result};
-use ddc_backend::windows_nvapi::NvapiBackend;
 use kvm_core::config::Configuration;
 use kvm_core::orchestrator::{self, DaemonEvent};
-use power_fallback::windows_monitorpower::WindowsMonitorPower;
 use std::sync::mpsc::Sender;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
-use trigger::usb_hotplug::UsbHotplugTrigger;
 use trigger::{TriggerEvent, TriggerSource};
 
 mod commands;
@@ -34,8 +31,99 @@ fn init_logging() -> Result<()> {
     .context("failed to initialize logging")
 }
 
+#[cfg(windows)]
 fn default_exe_path() -> std::path::PathBuf {
     std::path::PathBuf::from("tools/writeValueToDisplay.exe")
+}
+
+/// Forwards the configured switch device's hotplug events into the shared
+/// `DaemonEvent` channel. Platform-specific because the underlying
+/// `TriggerSource` implementation differs per OS.
+#[cfg(windows)]
+fn spawn_switch_trigger(usb_device: String, tx: Sender<DaemonEvent>) {
+    use trigger::usb_hotplug::UsbHotplugTrigger;
+    std::thread::spawn(move || {
+        let trigger = UsbHotplugTrigger::new(&usb_device);
+        for event in trigger.watch() {
+            let _ = tx.send(DaemonEvent::Trigger(event));
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_switch_trigger(usb_device: String, tx: Sender<DaemonEvent>) {
+    use trigger::macos_hotplug::MacosHotplugTrigger;
+    std::thread::spawn(move || {
+        let trigger = MacosHotplugTrigger::new(&usb_device);
+        for event in trigger.watch() {
+            let _ = tx.send(DaemonEvent::Trigger(event));
+        }
+    });
+}
+
+/// The single consumer: the only thing that ever calls into the DDC write
+/// path. Runs for the life of the process. Platform-specific because the
+/// `DdcBackend`/`PowerFallback` implementations differ per OS.
+#[cfg(windows)]
+fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration) {
+    use ddc_backend::windows_nvapi::NvapiBackend;
+    use power_fallback::windows_monitorpower::WindowsMonitorPower;
+    std::thread::spawn(move || {
+        let ddc_backend = NvapiBackend::new(default_exe_path());
+        let power_fallback = WindowsMonitorPower;
+        orchestrator::run(rx, &config, &ddc_backend, &power_fallback);
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration) {
+    use ddc_backend::macos_ioavservice::MacosIoavserviceBackend;
+    use power_fallback::macos_pmset::MacosPmset;
+    std::thread::spawn(move || {
+        let ddc_backend = MacosIoavserviceBackend;
+        let power_fallback = MacosPmset;
+        orchestrator::run(rx, &config, &ddc_backend, &power_fallback);
+    });
+}
+
+/// Forwards the (optional) MX Keys device's hotplug events into the tray's
+/// status item and an app-wide `mxkeys-status` event, for UIs that display
+/// live keyboard-presence state. Platform-specific for the same reason as
+/// `spawn_switch_trigger`.
+#[cfg(windows)]
+fn spawn_mxkeys_trigger(mxkeys_device: String, handle: tauri::AppHandle) {
+    use trigger::usb_hotplug::UsbHotplugTrigger;
+    std::thread::spawn(move || {
+        let trigger = UsbHotplugTrigger::new(&mxkeys_device);
+        for event in trigger.watch() {
+            let connected = matches!(event, TriggerEvent::HostGainedFocus);
+            let _ = handle.emit("mxkeys-status", connected);
+            let state = handle.state::<AppState>();
+            let guard = state.mxkeys_status_item.lock().unwrap();
+            if let Some(item) = guard.as_ref() {
+                let text = if connected { "MX Keys: connected" } else { "MX Keys: not connected" };
+                let _ = item.set_text(text);
+            }
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_mxkeys_trigger(mxkeys_device: String, handle: tauri::AppHandle) {
+    use trigger::macos_hotplug::MacosHotplugTrigger;
+    std::thread::spawn(move || {
+        let trigger = MacosHotplugTrigger::new(&mxkeys_device);
+        for event in trigger.watch() {
+            let connected = matches!(event, TriggerEvent::HostGainedFocus);
+            let _ = handle.emit("mxkeys-status", connected);
+            let state = handle.state::<AppState>();
+            let guard = state.mxkeys_status_item.lock().unwrap();
+            if let Some(item) = guard.as_ref() {
+                let text = if connected { "MX Keys: connected" } else { "MX Keys: not connected" };
+                let _ = item.set_text(text);
+            }
+        }
+    });
 }
 
 fn main() {
@@ -46,23 +134,8 @@ fn main() {
     let (tx, rx) = std::sync::mpsc::channel::<DaemonEvent>();
 
     if let Some(config) = config.clone() {
-        // Forward the switch device's hotplug events into the shared channel.
-        let switch_tx = tx.clone();
-        let switch_device = config.usb_device.clone();
-        std::thread::spawn(move || {
-            let trigger = UsbHotplugTrigger::new(&switch_device);
-            for event in trigger.watch() {
-                let _ = switch_tx.send(DaemonEvent::Trigger(event));
-            }
-        });
-
-        // The single consumer: the only thing that ever calls into the DDC
-        // write path. Runs for the life of the process.
-        std::thread::spawn(move || {
-            let ddc_backend = NvapiBackend::new(default_exe_path());
-            let power_fallback = WindowsMonitorPower;
-            orchestrator::run(rx, &config, &ddc_backend, &power_fallback);
-        });
+        spawn_switch_trigger(config.usb_device.clone(), tx.clone());
+        spawn_consumer(rx, config);
     } else {
         log::warn!(
             "No configuration found at {:?} yet; switching is disabled until the setup wizard runs.",
@@ -90,19 +163,7 @@ fn main() {
             if let Some(config) = config.clone() {
                 if let Some(mxkeys_device) = config.mxkeys_usb_device.clone() {
                     let handle = app.handle().clone();
-                    std::thread::spawn(move || {
-                        let trigger = UsbHotplugTrigger::new(&mxkeys_device);
-                        for event in trigger.watch() {
-                            let connected = matches!(event, TriggerEvent::HostGainedFocus);
-                            let _ = handle.emit("mxkeys-status", connected);
-                            let state = handle.state::<AppState>();
-                            let guard = state.mxkeys_status_item.lock().unwrap();
-                            if let Some(item) = guard.as_ref() {
-                                let text = if connected { "MX Keys: connected" } else { "MX Keys: not connected" };
-                                let _ = item.set_text(text);
-                            }
-                        }
-                    });
+                    spawn_mxkeys_trigger(mxkeys_device, handle);
                 }
             }
 
