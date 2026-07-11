@@ -38,6 +38,9 @@ pub use capabilities::parse_input_codes;
 // TODO(v2): linux_ddcutil.rs — wrapper over ddcutil/i2c-dev, which already
 // supports --i2c-source-addr natively (see DECISIONS.md #9). Out of scope.
 
+#[cfg(any(windows, target_os = "macos"))]
+pub mod ddchi_reader;
+
 #[cfg(windows)]
 pub mod windows_generic;
 #[cfg(windows)]
