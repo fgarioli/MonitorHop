@@ -59,7 +59,7 @@ fn device_id<T: UsbContext>(device: &rusb::Device<T>) -> Option<String> {
         .ok()
 }
 
-fn read_device_list() -> Result<HashSet<String>> {
+pub fn read_device_list() -> Result<HashSet<String>> {
     Ok(rusb::devices()?.iter().filter_map(|device| device_id(&device)).collect())
 }
 
