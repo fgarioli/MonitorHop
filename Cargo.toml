@@ -5,8 +5,5 @@ members = [
     "crates/trigger",
     "crates/ddc-backend",
     "crates/power-fallback",
-    "crates/daemon",
+    "crates/gui/src-tauri",
 ]
-# TODO(v2): crates/ui-tauri — optional configuration UI, talks to the daemon
-# via IPC. Rejected as a foundation; not part of this milestone at all
-# (see DECISIONS.md #6).
