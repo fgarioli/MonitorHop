@@ -14,13 +14,21 @@ export function Wizard({ onComplete }: { onComplete: (config: Configuration) => 
   const [step, setStep] = useState<Step>({ name: "switch-device" });
 
   if (step.name === "switch-device") {
-    return <DeviceStep label="Select the KVM switch USB device" onSelected={(id) => setStep({ name: "mxkeys-device", switchDevice: id })} />;
+    return (
+      <DeviceStep
+        key="switch-device"
+        label="Select the KVM switch USB device"
+        onSelected={(id) => setStep({ name: "mxkeys-device", switchDevice: id })}
+      />
+    );
   }
   if (step.name === "mxkeys-device") {
     return (
       <DeviceStep
+        key="mxkeys-device"
         label="Select the MX Keys receiver (optional — plug it in, or skip)"
         onSelected={(id) => setStep({ name: "monitor", switchDevice: step.switchDevice, mxkeysDevice: id })}
+        onSkip={() => setStep({ name: "monitor", switchDevice: step.switchDevice, mxkeysDevice: "" })}
       />
     );
   }
