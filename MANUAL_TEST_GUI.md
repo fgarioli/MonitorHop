@@ -6,9 +6,12 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 
 ## Setup
 
-1. Delete any existing `kvm-switch-config.json` in the repo root to force the
-   wizard on first launch.
-2. Confirm `tools/writeValueToDisplay.exe` exists.
+1. Delete any existing `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` to
+   force the wizard on first launch.
+2. Confirm `tools/writeValueToDisplay.exe` exists (relative to the repo root
+   for `cargo tauri dev`; see `default_exe_path()` in
+   `crates/gui/src-tauri/src/main.rs` for the exe-relative resolution a real
+   installed build uses instead).
 
 ## Wizard flow
 
@@ -23,8 +26,17 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 5. **Input mapping step:** confirm the listed inputs include `0xF`, `0x11`,
    `0x12` (DisplayPort1/HDMI1/HDMI2 — see DECISIONS.md §2); set "on connect"
    to `0x11` (HDMI1, the Mac's input); leave disconnect unset; click Finish.
-6. Confirm `kvm-switch-config.json` now exists and contains the selected
-   `usb_device`, `mxkeys_usb_device`, `on_usb_connect`, `display_index`.
+6. Confirm `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` now exists and
+   contains the selected `usb_device`, `mxkeys_usb_device`,
+   `on_usb_connect`, `display_index`.
+7. **Without restarting the app**, right-click the tray icon; confirm the
+   "Switch to 0x..." quick-switch items are now present (they weren't there
+   before the wizard finished, since no config existed at startup). Click
+   one; confirm the monitor switches. Then physically toggle the USB switch;
+   confirm the monitor switches via the hardware trigger path too. This is
+   the first-run regression check: before the final-review fix, the switch
+   pipeline never started until the next restart because the `DaemonEvent`
+   receiver was silently dropped when no config existed at process launch.
 
 ## Main screen
 

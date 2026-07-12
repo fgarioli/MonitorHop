@@ -76,7 +76,7 @@ cargo test
 
 ## Configuration
 
-Configuration is a JSON file, `kvm-switch-config.json`, resolved relative to the working directory (see `config_path()` in `crates/gui/src-tauri/src/main.rs`). It is written by the GUI's setup wizard (`crates/gui/frontend/src/wizard/Wizard.tsx`'s final `saveConfig(config)` call) rather than hand-edited by the user.
+Configuration is a JSON file at `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` (see `config_path()` in `crates/gui/src-tauri/src/main.rs`; the directory is created if missing). It is resolved against `%APPDATA%`, not the process's working directory, so it can still be found when `tauri-plugin-autostart` launches the app at login with an unpredictable CWD. It is written by the GUI's setup wizard (`crates/gui/frontend/src/wizard/Wizard.tsx`'s final `saveConfig(config)` call) rather than hand-edited by the user.
 
 The schema (`Configuration` in `crates/kvm_core/src/config.rs`) is a single flat object:
 - `usb_device` - the trigger USB device ID (vendor:product)
