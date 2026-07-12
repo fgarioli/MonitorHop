@@ -76,24 +76,24 @@ cargo test
 
 ## Configuration
 
-The app expects an INI configuration file at:
-- **macOS**: `~/Library/Preferences/display-switch.ini`
-- **Windows**: `%APPDATA%\display-switch\display-switch.ini`
-- **Linux**: `$XDG_CONFIG_HOME/display-switch/display-switch.ini` or `~/.config/display-switch/display-switch.ini`
+Configuration is a JSON file, `kvm-switch-config.json`, resolved relative to the working directory (see `config_path()` in `crates/gui/src-tauri/src/main.rs`). It is written by the GUI's setup wizard (`crates/gui/frontend/src/wizard/Wizard.tsx`'s final `saveConfig(config)` call) rather than hand-edited by the user.
 
-Configuration supports:
-- Global USB device monitoring and default input switching
-- Per-monitor configuration with monitor ID matching
-- External command execution on connect/disconnect events
+The schema (`Configuration` in `crates/kvm_core/src/config.rs`) is a single flat object:
+- `usb_device` - the trigger USB device ID (vendor:product)
+- `mxkeys_usb_device` - optional Logitech MX Keys / Unifying receiver device ID
+- `on_usb_connect` / `on_usb_disconnect` - input source to switch to on each event
+- `on_usb_connect_source_addr` - optional DDC source-address override
+- `on_usb_connect_vcp_code` - optional VCP feature code override (defaults to `0x60`)
+- `display_index` - which detected display to control (defaults to `0`)
+
+There is no per-monitor `[monitor1]..[monitor6]` support and no external command execution on connect/disconnect — both were cut during the earlier CLI/daemon-era design and have not been reintroduced.
 
 ## Key Dependencies
 
-- **config** - INI file parsing
 - **ddc/ddc-hi** - Cross-platform DDC/CI monitor control
 - **rusb** - USB device monitoring
-- **serde** - Configuration deserialization
+- **serde** / **serde_json** - Configuration (de)serialization
 - **anyhow** - Error handling
-- **clap** - CLI argument parsing
 - **simplelog** - Logging to platform-specific log files
 - **Tauri** — cross-platform GUI shell (system tray, single-instance, autostart plugins); frontend is React + TypeScript, built via Vite (`crates/gui/frontend`)
 
