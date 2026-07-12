@@ -1,0 +1,60 @@
+# Manual Test: GUI wizard, manual switching, tray, MX Keys status
+
+Run this after `cargo tauri build --debug` succeeds, on the real hardware
+described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
+17e9:6000, MX Keys with Unifying receiver).
+
+## Setup
+
+1. Delete any existing `kvm-switch-config.json` in the repo root to force the
+   wizard on first launch.
+2. Confirm `tools/writeValueToDisplay.exe` exists.
+
+## Wizard flow
+
+1. Launch `cargo tauri dev` (or the built binary).
+2. **Switch device step:** click Start, then physically toggle the USB
+   switch (or unplug/replug it) so it disappears and reappears; click "I
+   plugged it in"; confirm exactly one new device ID appears and select it.
+3. **MX Keys step:** repeat with the Unifying receiver plugged into any USB
+   port on this host.
+4. **Monitor step:** confirm the LG 34GL750 appears in the list (by model
+   name or EDID id); select it.
+5. **Input mapping step:** confirm the listed inputs include `0xF`, `0x11`,
+   `0x12` (DisplayPort1/HDMI1/HDMI2 — see DECISIONS.md §2); set "on connect"
+   to `0x11` (HDMI1, the Mac's input); leave disconnect unset; click Finish.
+6. Confirm `kvm-switch-config.json` now exists and contains the selected
+   `usb_device`, `mxkeys_usb_device`, `on_usb_connect`, `display_index`.
+
+## Main screen
+
+1. Confirm the main screen loads (not the wizard) on a second launch.
+2. Confirm the MX Keys status line reflects reality: unplug the receiver,
+   confirm it flips to "not connected" within a few seconds; replug it,
+   confirm it flips back.
+3. Click "Switch" next to `0x11`; confirm the monitor switches to HDMI1.
+4. Click "Switch" next to `0xF`; confirm the monitor switches back to
+   DisplayPort1.
+5. Physically toggle the USB switch; confirm the monitor still switches via
+   the hardware trigger path (not just the manual button) — this is the
+   regression check that Task 4's shared `perform_switch`/`orchestrator::run`
+   didn't break the original MVP behavior.
+
+## Tray and autostart
+
+1. Close the window (X button); confirm the process keeps running (check
+   Task Manager) and the tray icon remains.
+2. Left-click the tray icon; confirm the window restores.
+3. Right-click the tray icon; confirm "Open"/"Quit" appear and both work.
+4. Confirm an autostart entry was created (Windows: `Startup` folder or
+   `HKCU\...\Run`, depending on how `tauri-plugin-autostart` implements it on
+   this OS) after first launch.
+5. Quit via the tray menu; confirm the process actually exits (not just
+   hidden).
+
+## Known non-goals for this milestone
+
+- No automated test covers this end-to-end flow — it requires physically
+  toggling the USB switch/receiver and observing the monitor and tray, same
+  limitation as `MANUAL_TEST.md`.
+- macOS is not tested here at all (see this plan's Global Constraints).

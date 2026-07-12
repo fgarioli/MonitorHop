@@ -37,18 +37,28 @@ Cross-platform with platform-specific dependencies:
 - **Linux**: Uses `ddc-i2c` and requires i2c device permissions
 - **Windows**: Uses `ddc-winapi` and `nvapi` for display control
 
+## GUI Requirement (All Platforms)
+
+A GUI application is a **hard requirement for every supported OS** (Windows, macOS, Linux) — not an optional or Windows-only add-on. This supersedes the earlier "Tauri UI is v2/optional, not coupled to the daemon" scoping decision recorded in `DECISIONS.md` #6/#8. The GUI wraps the existing headless daemon; it does not replace the USB-hotplug trigger path.
+
+Required capabilities:
+- **Configuration step**: a setup flow that lists detected DDC-compatible monitors together with their monitor codes/IDs, and lists each monitor's available input sources (VCP input-select values), so the connect/disconnect mapping can be built without hand-editing the `.ini` file.
+- **MX Keys detection**: the app detects whether a Logitech MX Keys (or its Unifying receiver) is currently connected and surfaces it as a recognized trigger device.
+- **Software switching**: the main screen lets the user manually trigger a switch between a monitor's available inputs, in addition to the passive USB-hotplug-triggered switching.
+- **Tray/menu-bar minimization**: the app minimizes to the system tray (Windows/Linux) or menu bar (macOS) instead of quitting, keeping the daemon logic running in the background.
+
 ## Development Commands
 
 ### Building
 ```bash
-# Debug build (creates universal binary on macOS)
-make build-debug
+# Install the Tauri CLI once
+cargo install tauri-cli --version "^2"
 
-# Release build (creates universal binary on macOS)
-make build-release
+# Debug build/run (opens the GUI)
+cargo tauri dev
 
-# Standard cargo build (non-macOS or simple builds)
-cargo build --release
+# Release build
+cargo tauri build
 ```
 
 ### Testing
@@ -60,11 +70,8 @@ cargo test
 
 ### Running
 ```bash
-# Run with debug logging
-./target/release/display_switch --debug
-
-# Check version
-./target/release/display_switch --version
+# Launch the GUI directly (after cargo tauri build)
+./target/release/kvm-switch-gui
 ```
 
 ## Configuration
@@ -88,6 +95,7 @@ Configuration supports:
 - **anyhow** - Error handling
 - **clap** - CLI argument parsing
 - **simplelog** - Logging to platform-specific log files
+- **Tauri** — cross-platform GUI shell (system tray, single-instance, autostart plugins); frontend is React + TypeScript, built via Vite (`crates/gui/frontend`)
 
 ## Testing Strategy
 

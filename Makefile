@@ -1,4 +1,4 @@
-BINARY := display_switch
+BINARY := kvm-switch-gui
 INTEL_ARCH := x86_64-apple-darwin
 ARM_ARCH := aarch64-apple-darwin
 UNAME_S := $(shell uname -s)
@@ -43,13 +43,13 @@ target/$(INTEL_ARCH)/release/$(BINARY): setup-$(INTEL_ARCH)
 target/$(ARM_ARCH)/release/$(BINARY): setup-$(ARM_ARCH)
 	cargo build --target $(ARM_ARCH) --release
 
-# Non-macOS build: defaults to standard cargo build
+# Non-macOS build: defaults to `cargo tauri build`
 else
 build-debug:
-	cargo build
+	cargo tauri build --debug
 
 build-release:
-	cargo build --release
+	cargo tauri build
 endif
 
 all: build-debug
