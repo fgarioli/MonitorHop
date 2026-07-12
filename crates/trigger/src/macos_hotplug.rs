@@ -59,8 +59,15 @@ fn run_hotplug_loop(usb_device: String, sender: Sender<TriggerEvent>) -> Result<
     }
     let context = Context::new()?;
     let handler = HotplugHandler { usb_device, sender };
+    // enumerate(false): only fire device_arrived/device_left for devices that
+    // connect/disconnect AFTER registration. enumerate(true) would synchronously
+    // call device_arrived for devices already plugged in at registration time,
+    // synthesizing a spurious HostGainedFocus event on every launch if the KVM
+    // switch is already connected. This matches Windows' usb_hotplug.rs, which
+    // seeds current_devices from read_device_list() before entering its message
+    // loop so pre-existing connections produce no event.
     let _registration: Registration<Context> =
-        HotplugBuilder::new().enumerate(true).register(&context, Box::new(handler))?;
+        HotplugBuilder::new().enumerate(false).register(&context, Box::new(handler))?;
     loop {
         context.handle_events(None)?;
     }
