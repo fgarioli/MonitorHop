@@ -1,0 +1,42 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connected .dot {
+  background: var(--color-primary, #059669);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.disconnected .dot {
+  background: #9ca3af;
+}
+
+.unknown .dot {
+  background: #d1d5db;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connected .dot {
+    animation: none;
+  }
+}
