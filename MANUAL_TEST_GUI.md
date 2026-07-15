@@ -29,7 +29,21 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 6. Confirm `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` now exists and
    contains the selected `usb_device`, `mxkeys_usb_device`,
    `on_usb_connect`, `display_index`.
-7. **Without restarting the app**, right-click the tray icon; confirm the
+7. **Back navigation:** on the input-mapping step, click the new back arrow
+   (top-left). Confirm it returns to the monitor step with the previously
+   selected monitor showing a checkmark. Click back again to the MX Keys
+   step, then again to the switch-device step; confirm the switch-device and
+   MX Keys steps restart their plug-detection flow from scratch (this is
+   expected — see this plan's Task 8 back-navigation design).
+8. **Inline errors:** temporarily unplug the monitor's DDC connection (or
+   otherwise make a DDC call fail) and confirm the wizard shows a red inline
+   error message anchored under the relevant step, not a floating toast, and
+   that it clears on the next successful action.
+9. **Friendly labels:** confirm the switch-device/MX-Keys candidate list
+   shows "Logitech (046d:c52b)" or "DisplayLink (17e9:6000)" style labels
+   instead of raw hex vendor:product ids, and the input-mapping step's
+   dropdowns show "DisplayPort 1"/"HDMI 1" instead of `0xf`/`0x11`.
+10. **Without restarting the app**, right-click the tray icon; confirm the
    "Switch to 0x..." quick-switch items are now present (they weren't there
    before the wizard finished, since no config existed at startup). Click
    one; confirm the monitor switches. Then physically toggle the USB switch;
@@ -44,10 +58,17 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 2. Confirm the MX Keys status line reflects reality: unplug the receiver,
    confirm it flips to "not connected" within a few seconds; replug it,
    confirm it flips back.
-3. Click "Switch" next to `0x11`; confirm the monitor switches to HDMI1.
-4. Click "Switch" next to `0xF`; confirm the monitor switches back to
+3. Confirm the input that matches the monitor's actual current source shows
+   an "Active" (disabled) button and a highlighted border, without clicking
+   anything — this comes from the new `current_input` DDC read, not from
+   memory of the last button clicked. Manually switch the monitor's input
+   using the monitor's own physical buttons/remote (bypassing this app
+   entirely), then reopen or refresh the main screen; confirm the
+   highlighted "Active" input updates to match reality.
+4. Click "Switch" next to `0x11`; confirm the monitor switches to HDMI1.
+5. Click "Switch" next to `0xF`; confirm the monitor switches back to
    DisplayPort1.
-5. Physically toggle the USB switch; confirm the monitor still switches via
+6. Physically toggle the USB switch; confirm the monitor still switches via
    the hardware trigger path (not just the manual button) — this is the
    regression check that Task 4's shared `perform_switch`/`orchestrator::run`
    didn't break the original MVP behavior.
