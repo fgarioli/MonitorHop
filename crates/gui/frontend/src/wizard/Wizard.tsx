@@ -84,7 +84,11 @@ export function Wizard({ onComplete }: { onComplete: (config: Configuration) => 
           <MonitorStep
             initialSelection={answers.monitor}
             onSelected={(monitor) => {
-              setAnswers((a) => ({ ...a, monitor }));
+              setAnswers((a) =>
+                a.monitor && a.monitor.display_index !== monitor.display_index
+                  ? { ...a, monitor, onConnect: null, onDisconnect: null }
+                  : { ...a, monitor },
+              );
               setStepIndex(3);
             }}
             onBack={goBack}

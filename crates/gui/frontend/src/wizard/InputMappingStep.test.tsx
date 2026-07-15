@@ -20,8 +20,8 @@ describe("InputMappingStep", () => {
   it("shows friendly labels instead of raw hex", async () => {
     vi.mocked(invoke).mockResolvedValueOnce([0x0f, 0x11]);
     render(<InputMappingStep displayIndex={0} onComplete={() => {}} />);
-    expect(await screen.findAllByText("DisplayPort 1")).toBeTruthy();
-    expect(screen.getAllByText("HDMI 1")).toBeTruthy();
+    expect(await screen.findAllByText("DisplayPort 1")).toHaveLength(2);
+    expect(screen.getAllByText("HDMI 1")).toHaveLength(2);
   });
 
   it("pre-fills the previous selections when navigating back to this step", async () => {
