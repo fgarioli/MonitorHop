@@ -42,4 +42,22 @@ impl MonitorReader for DdcHiMonitorReader {
             .map_err(|err| anyhow!("failed to read capabilities for display {}: {:?}", display_index, err))?;
         Ok(parse_input_codes(&String::from_utf8_lossy(&raw)))
     }
+
+    /// Reuses the same `Ddc` trait `enumerate()` already brings into scope
+    /// (see the `use` at the top of this file) — `get_vcp_feature` returns a
+    /// `mccs::Value` whose `sl` field is the low byte of the current value,
+    /// which is all VCP 0x60's single-byte input codes need (mirrors how
+    /// `input_codes` above already treats these codes as plain `u8`s).
+    fn current_input(&self, display_index: u32) -> Result<u8> {
+        const INPUT_SELECT: u8 = 0x60;
+        let mut displays = Display::enumerate();
+        let display = displays
+            .get_mut(display_index as usize)
+            .ok_or_else(|| anyhow!("no display at index {}", display_index))?;
+        let value = display
+            .handle
+            .get_vcp_feature(INPUT_SELECT)
+            .map_err(|err| anyhow!("failed to read current input for display {}: {:?}", display_index, err))?;
+        Ok(value.sl)
+    }
 }

@@ -27,6 +27,12 @@ pub struct MonitorInfo {
 pub trait MonitorReader {
     fn enumerate(&self) -> Result<Vec<MonitorInfo>>;
     fn input_codes(&self, display_index: u32) -> Result<Vec<u8>>;
+    /// Reads VCP feature `0x60` (input select)'s *current* value — lets the
+    /// GUI's main screen highlight which input is already active instead of
+    /// presenting every input as equally "not yet chosen". Read-only, same
+    /// as `enumerate`/`input_codes`: never touches the orchestrator's write
+    /// path.
+    fn current_input(&self, display_index: u32) -> Result<u8>;
 }
 
 pub mod capabilities;
