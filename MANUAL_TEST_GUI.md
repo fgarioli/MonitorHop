@@ -43,14 +43,36 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
    shows "Logitech (046d:c52b)" or "DisplayLink (17e9:6000)" style labels
    instead of raw hex vendor:product ids, and the input-mapping step's
    dropdowns show "DisplayPort 1"/"HDMI 1" instead of `0xf`/`0x11`.
-10. **Without restarting the app**, right-click the tray icon; confirm the
-   "Switch to 0x..." quick-switch items are now present (they weren't there
-   before the wizard finished, since no config existed at startup). Click
-   one; confirm the monitor switches. Then physically toggle the USB switch;
-   confirm the monitor switches via the hardware trigger path too. This is
-   the first-run regression check: before the final-review fix, the switch
-   pipeline never started until the next restart because the `DaemonEvent`
-   receiver was silently dropped when no config existed at process launch.
+10. **Immediate device detection:** with the KVM switch and MX Keys receiver
+    already plugged in (do NOT unplug them first), open the switch-device
+    step. Confirm both devices appear immediately in a list, each labeled
+    with a friendly name and id (e.g. "DisplayLink Dock/Switch
+    (17e9:6000)"), with no need to click "Start" or replug anything.
+    Confirm clicking "Use this" on one selects it and advances the wizard.
+11. **Diff-flow fallback still works:** on the same step, click "Not sure
+    which one? Plug it in now"; confirm the old plug-in-now flow still
+    appears and completes correctly for a device you physically
+    unplug/replug.
+12. **Device database editing:** close the app, open
+    `%APPDATA%\kvm-switch-gui\device-database.json` in a text editor,
+    confirm it contains the 4 seeded entries (046d:c52b, 046d, 17e9:6000,
+    17e9). Add a new `"vendor:product": "Some Name"` entry for any other
+    device you have, save, relaunch the app, and confirm that device now
+    shows the new name in the wizard's connected-device list.
+13. **Corrupted database degrades gracefully:** with the app closed, edit
+    `device-database.json` to contain invalid JSON (e.g. delete a closing
+    brace) and save. Relaunch the app and open the switch-device step;
+    confirm the connected-device list still appears (with raw hex ids
+    instead of names, since the corrupted file can't be used) and nothing
+    crashes or shows a blocking error. Restore the file afterward.
+14. **Without restarting the app**, right-click the tray icon; confirm the
+    "Switch to 0x..." quick-switch items are now present (they weren't there
+    before the wizard finished, since no config existed at startup). Click
+    one; confirm the monitor switches. Then physically toggle the USB switch;
+    confirm the monitor switches via the hardware trigger path too. This is
+    the first-run regression check: before the final-review fix, the switch
+    pipeline never started until the next restart because the `DaemonEvent`
+    receiver was silently dropped when no config existed at process launch.
 
 ## Main screen
 
