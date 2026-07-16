@@ -7,6 +7,7 @@ use tauri::{Emitter, Manager};
 use trigger::{TriggerEvent, TriggerSource};
 
 mod commands;
+mod device_database;
 
 pub struct AppState {
     pub events: Mutex<Sender<DaemonEvent>>,
