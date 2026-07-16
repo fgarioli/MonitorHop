@@ -50,6 +50,12 @@ pub fn current_input(display_index: u32) -> Result<u8, String> {
     DdcHiMonitorReader.current_input(display_index).map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+pub fn load_device_database() -> Result<String, String> {
+    crate::device_database::load_or_seed(&crate::device_database::device_database_path())
+        .map_err(|err| err.to_string())
+}
+
 /// Writes `config` to disk, then — if this is a genuine first run (no
 /// config existed when the process started, so `main()` parked the
 /// `DaemonEvent` receiver in `AppState.pending_rx` instead of starting the

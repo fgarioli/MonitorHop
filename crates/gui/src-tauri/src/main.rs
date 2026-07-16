@@ -326,6 +326,7 @@ fn main() {
             commands::load_config,
             commands::switch_input,
             commands::current_input,
+            commands::load_device_database,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
