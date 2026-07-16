@@ -62,9 +62,12 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 13. **Corrupted database degrades gracefully:** with the app closed, edit
     `device-database.json` to contain invalid JSON (e.g. delete a closing
     brace) and save. Relaunch the app and open the switch-device step;
-    confirm the connected-device list still appears (with raw hex ids
-    instead of names, since the corrupted file can't be used) and nothing
-    crashes or shows a blocking error. Restore the file afterward.
+    confirm the connected-device list still appears with the seeded devices
+    (DisplayLink Dock/Switch and Logitech MX Keys / Unifying Receiver) still
+    showing their friendly names, the custom device added in item 12 now
+    shows as a raw hex id (since the corrupted file's custom entry is lost
+    and the fallback uses only seeded names), and nothing crashes or shows a
+    blocking error. Restore the file afterward.
 14. **Without restarting the app**, right-click the tray icon; confirm the
     "Switch to 0x..." quick-switch items are now present (they weren't there
     before the wizard finished, since no config existed at startup). Click
