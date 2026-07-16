@@ -23,3 +23,13 @@ export const saveConfig = (config: Configuration) => invoke<void>("save_config",
 export const loadConfig = () => invoke<Configuration | null>("load_config");
 export const switchInput = (inputValue: number) => invoke<void>("switch_input", { inputValue });
 export const currentInput = (displayIndex: number) => invoke<number>("current_input", { displayIndex });
+
+/** Loads the runtime "known USB devices" lookup (device-database.json),
+ * normalizing all keys to lowercase so `usbDeviceLabel`'s lookups don't
+ * need to worry about casing a human might use when hand-editing the
+ * file. */
+export const loadDeviceDatabase = () =>
+  invoke<string>("load_device_database").then((raw) => {
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key.toLowerCase(), value]));
+  });
