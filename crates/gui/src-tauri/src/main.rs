@@ -32,22 +32,41 @@ pub struct AppState {
     pub tray_icon: Mutex<Option<tauri::tray::TrayIcon<tauri::Wry>>>,
 }
 
+/// Resolves and creates the per-OS application-support directory
+/// (`%APPDATA%\kvm-switch-gui` on Windows, `$HOME/Library/Application
+/// Support/kvm-switch-gui` on macOS), returning `None` if the relevant
+/// environment variable isn't set or the directory can't be created —
+/// callers fall back to a CWD-relative path in that case. Shared by
+/// `config_path` below and `device_database::device_database_path`, so both
+/// resolve to the same directory.
+pub(crate) fn app_support_dir() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let base = std::env::var("APPDATA").ok().map(std::path::PathBuf::from);
+    #[cfg(target_os = "macos")]
+    let base = std::env::var("HOME")
+        .ok()
+        .map(|home| std::path::PathBuf::from(home).join("Library/Application Support"));
+    #[cfg(not(any(windows, target_os = "macos")))]
+    let base: Option<std::path::PathBuf> = None;
+
+    let dir = base?.join("kvm-switch-gui");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// Resolves the config file to a stable, OS-independent location rather than
 /// the process's current working directory. This matters because
 /// `tauri-plugin-autostart` launches the app at login with an unpredictable
-/// CWD (often something like `C:\Windows\System32`, not the install
-/// directory), so a CWD-relative path would silently fail to find the config
-/// on an autostarted run. Falls back to the old CWD-relative behavior if
-/// `APPDATA` isn't set, which should not happen on real Windows but keeps
-/// this defensive rather than panicking.
+/// CWD on both Windows (often `C:\Windows\System32`) and macOS (a
+/// `LaunchAgent`'s CWD is similarly not the install directory), so a
+/// CWD-relative path would silently fail to find the config on an
+/// autostarted run. Falls back to the old CWD-relative behavior if
+/// `app_support_dir` returns `None`, which should not happen on a real
+/// Windows or macOS machine but keeps this defensive rather than panicking.
 pub(crate) fn config_path() -> std::path::PathBuf {
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let dir = std::path::PathBuf::from(appdata).join("kvm-switch-gui");
-        if std::fs::create_dir_all(&dir).is_ok() {
-            return dir.join("kvm-switch-config.json");
-        }
-    }
-    std::path::PathBuf::from("kvm-switch-config.json")
+    app_support_dir()
+        .map(|dir| dir.join("kvm-switch-config.json"))
+        .unwrap_or_else(|| std::path::PathBuf::from("kvm-switch-config.json"))
 }
 
 fn init_logging() -> Result<()> {
@@ -375,5 +394,21 @@ mod tests {
     #[test]
     fn default_exe_path_fallback_resolves_to_real_file() {
         assert!(default_exe_path().exists(), "{:?} does not exist", default_exe_path());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn app_support_dir_uses_appdata_on_windows() {
+        let dir = app_support_dir().expect("APPDATA should be set in the test environment");
+        assert!(dir.ends_with("kvm-switch-gui"));
+        assert!(dir.exists());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn app_support_dir_uses_library_application_support_on_macos() {
+        let dir = app_support_dir().expect("HOME should be set in the test environment");
+        assert!(dir.ends_with("kvm-switch-gui"));
+        assert!(dir.to_string_lossy().contains("Library/Application Support"));
     }
 }

@@ -26,17 +26,14 @@ pub(crate) const SEED_DEVICE_DATABASE: &str = r#"{
 }
 "#;
 
-/// Same `%APPDATA%\kvm-switch-gui\` directory as `config_path()` in
-/// `main.rs` — falls back to a CWD-relative path if `APPDATA` isn't set,
-/// matching that function's existing defensive behavior.
+/// Same `%APPDATA%\kvm-switch-gui\` (Windows) / `$HOME/Library/Application
+/// Support/kvm-switch-gui` (macOS) directory as `config_path()` in
+/// `main.rs` — falls back to a CWD-relative path if that directory can't be
+/// resolved, matching that function's existing defensive behavior.
 pub(crate) fn device_database_path() -> PathBuf {
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let dir = PathBuf::from(appdata).join("kvm-switch-gui");
-        if std::fs::create_dir_all(&dir).is_ok() {
-            return dir.join("device-database.json");
-        }
-    }
-    PathBuf::from("device-database.json")
+    crate::app_support_dir()
+        .map(|dir| dir.join("device-database.json"))
+        .unwrap_or_else(|| PathBuf::from("device-database.json"))
 }
 
 /// Returns `content` unchanged if it parses as JSON, otherwise logs a
