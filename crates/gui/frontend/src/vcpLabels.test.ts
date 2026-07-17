@@ -12,4 +12,12 @@ describe("vcpInputLabel", () => {
   it("falls back to the raw hex code for values the spec doesn't define here", () => {
     expect(vcpInputLabel(0x99)).toBe("0x99");
   });
+
+  it("maps LG-alt vendor-specific codes to friendly names", () => {
+    expect(vcpInputLabel(0x90)).toBe("HDMI 1 (LG alt)");
+    expect(vcpInputLabel(0x91)).toBe("HDMI 2 (LG alt)");
+    expect(vcpInputLabel(0xd0)).toBe("DisplayPort 1 (LG alt)");
+    expect(vcpInputLabel(0xd1)).toBe("DP2/USB-C (LG alt)");
+    expect(vcpInputLabel(0xd2)).toBe("USB-C (LG alt)");
+  });
 });

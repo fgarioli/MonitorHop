@@ -99,7 +99,7 @@ pub fn save_config(config: Configuration, app: tauri::AppHandle, state: tauri::S
         spawn_mxkeys_trigger(mxkeys_device, app.clone());
     }
 
-    spawn_consumer(rx, config.clone());
+    spawn_consumer(rx, config.clone(), app.clone());
 
     if let Err(err) = refresh_tray_quick_switch_items(&app, &state, &config) {
         log::warn!("Failed to refresh tray quick-switch items after first-run save: {err}");

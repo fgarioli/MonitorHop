@@ -65,10 +65,15 @@ fn init_logging() -> Result<()> {
 /// directory rather than the CWD — this matches how a real installed/
 /// autostarted build is laid out (the tool ships alongside the binary,
 /// modulo the bundling caveat below), and autostart launches with an
-/// unpredictable CWD (see `config_path` above). Falls back to the old
-/// CWD-relative path if the exe-relative one doesn't exist on disk, which
-/// keeps `cargo tauri dev`/local development working — there, `tools/` lives
-/// at the repo root, not next to `target/debug/kvm-switch-gui.exe`.
+/// unpredictable CWD (see `config_path` above). Falls back to a path anchored
+/// on `CARGO_MANIFEST_DIR` (baked in at compile time as this crate's own
+/// source directory) if the exe-relative one doesn't exist on disk, which
+/// keeps `cargo tauri dev`/local development working regardless of the
+/// process's *runtime* CWD. A plain CWD-relative fallback was tried first and
+/// found broken: `cargo tauri dev` runs its DevCommand with CWD set to this
+/// crate's own directory (`crates/gui/src-tauri`), not the repo root, so
+/// `"tools/writeValueToDisplay.exe"` resolved to a directory that doesn't
+/// exist there (confirmed via manual testing — `os error 3`, path not found).
 ///
 /// NOTE: whether a real Tauri bundle actually places `tools/
 /// writeValueToDisplay.exe` next to the installed binary is a packaging
@@ -85,7 +90,7 @@ fn default_exe_path() -> std::path::PathBuf {
             }
         }
     }
-    std::path::PathBuf::from("tools/writeValueToDisplay.exe")
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tools/writeValueToDisplay.exe")
 }
 
 /// Forwards the configured switch device's hotplug events into the shared
@@ -116,25 +121,37 @@ pub(crate) fn spawn_switch_trigger(usb_device: String, tx: Sender<DaemonEvent>) 
 /// The single consumer: the only thing that ever calls into the DDC write
 /// path. Runs for the life of the process. Platform-specific because the
 /// `DdcBackend`/`PowerFallback` implementations differ per OS.
+///
+/// Emits `current-input-changed` with the newly-applied VCP value whenever a
+/// switch actually succeeds, regardless of what triggered it (hotplug or a
+/// manual button) — the main screen listens for this so its "Active" input
+/// highlight stays correct after a switch it didn't itself initiate, instead
+/// of only reflecting whatever `current_input` returned at mount time.
 #[cfg(windows)]
-pub(crate) fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration) {
+pub(crate) fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration, app: tauri::AppHandle) {
     use ddc_backend::windows_nvapi::NvapiBackend;
     use power_fallback::windows_monitorpower::WindowsMonitorPower;
     std::thread::spawn(move || {
         let ddc_backend = NvapiBackend::new(default_exe_path());
         let power_fallback = WindowsMonitorPower;
-        orchestrator::run(rx, &config, &ddc_backend, &power_fallback);
+        let on_switched = |value: u16| {
+            let _ = app.emit("current-input-changed", value);
+        };
+        orchestrator::run(rx, &config, &ddc_backend, &power_fallback, &on_switched);
     });
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration) {
+pub(crate) fn spawn_consumer(rx: std::sync::mpsc::Receiver<DaemonEvent>, config: Configuration, app: tauri::AppHandle) {
     use ddc_backend::macos_ioavservice::MacosIoavserviceBackend;
     use power_fallback::macos_pmset::MacosPmset;
     std::thread::spawn(move || {
         let ddc_backend = MacosIoavserviceBackend;
         let power_fallback = MacosPmset;
-        orchestrator::run(rx, &config, &ddc_backend, &power_fallback);
+        let on_switched = |value: u16| {
+            let _ = app.emit("current-input-changed", value);
+        };
+        orchestrator::run(rx, &config, &ddc_backend, &power_fallback, &on_switched);
     });
 }
 
@@ -229,11 +246,18 @@ fn main() {
     // send would go into a channel nobody reads. Instead, park it in
     // `AppState.pending_rx` so `commands::save_config` can start the
     // pipeline once the setup wizard writes a config for the first time.
+    //
+    // `spawn_consumer` now needs a `tauri::AppHandle` (to emit
+    // `current-input-changed`), which doesn't exist yet at this point in
+    // `main()` — so unlike `spawn_switch_trigger` above, its call is
+    // deferred into `.setup()` below, mirroring how `spawn_mxkeys_trigger`
+    // already has to wait for the same reason.
     let mut pending_rx = None;
+    let mut startup_consumer: Option<(std::sync::mpsc::Receiver<DaemonEvent>, Configuration)> = None;
 
     if let Some(config) = config.clone() {
         spawn_switch_trigger(config.usb_device.clone(), tx.clone());
-        spawn_consumer(rx, config);
+        startup_consumer = Some((rx, config));
     } else {
         log::warn!(
             "No configuration found at {:?} yet; switching is disabled until the setup wizard runs.",
@@ -261,6 +285,11 @@ fn main() {
             tray_icon: Mutex::new(None),
         })
         .setup(move |app| {
+            if let Some((rx, config)) = startup_consumer {
+                let handle = app.handle().clone();
+                spawn_consumer(rx, config, handle);
+            }
+
             if let Some(config) = config.clone() {
                 if let Some(mxkeys_device) = config.mxkeys_usb_device.clone() {
                     let handle = app.handle().clone();
@@ -330,4 +359,21 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test for the `os error 3` (path not found) bug found during
+    /// manual testing: the exe-relative candidate never exists in a `cargo
+    /// tauri dev` session (nothing copies the tool into `target/debug/tools`),
+    /// so this asserts the `CARGO_MANIFEST_DIR`-anchored fallback actually
+    /// resolves to the real file in this checkout, regardless of the test
+    /// runner's CWD.
+    #[cfg(windows)]
+    #[test]
+    fn default_exe_path_fallback_resolves_to_real_file() {
+        assert!(default_exe_path().exists(), "{:?} does not exist", default_exe_path());
+    }
 }

@@ -17,20 +17,36 @@ pub enum DaemonEvent {
     ManualSwitch(InputSource),
 }
 
-fn perform_switch(target: &SwitchTarget, ddc_backend: &dyn DdcBackend, power_fallback: &dyn PowerFallback) {
+/// `on_switched` fires with the VCP value that was actually applied whenever
+/// a switch genuinely succeeds (first attempt or after a power-fallback
+/// retry) — the GUI wires this to an emitted event so the main screen's
+/// "Active" input highlight stays correct for switches it didn't initiate
+/// itself (a hotplug trigger, or another client's manual switch), instead of
+/// only ever reflecting whatever `current_input` returned at mount time.
+fn perform_switch(
+    target: &SwitchTarget,
+    ddc_backend: &dyn DdcBackend,
+    power_fallback: &dyn PowerFallback,
+    on_switched: &dyn Fn(u16),
+) {
     let attempt = |ddc_backend: &dyn DdcBackend| {
         ddc_backend.set_vcp(target.display_index, target.vcp_code, target.input_source.value(), target.source_addr)
+    };
+    let on_success = || {
+        log::info!("Display switched to {:?}", target.input_source);
+        on_switched(target.input_source.value());
     };
     if let Err(err) = attempt(ddc_backend) {
         log::warn!("Failed to switch display input: {:?}. Retrying after power fallback.", err);
         if let Err(err) = power_fallback.blank_and_restore() {
             log::error!("Power fallback failed: {:?}", err);
         }
-        if let Err(err) = attempt(ddc_backend) {
-            log::error!("Retry failed, giving up: {:?}", err);
+        match attempt(ddc_backend) {
+            Ok(()) => on_success(),
+            Err(err) => log::error!("Retry failed, giving up: {:?}", err),
         }
     } else {
-        log::info!("Display switched to {:?}", target.input_source);
+        on_success();
     }
 }
 
@@ -39,6 +55,7 @@ pub fn handle_event(
     config: &Configuration,
     ddc_backend: &dyn DdcBackend,
     power_fallback: &dyn PowerFallback,
+    on_switched: &dyn Fn(u16),
 ) {
     let direction = match event {
         TriggerEvent::HostGainedFocus => SwitchDirection::Connect,
@@ -48,7 +65,7 @@ pub fn handle_event(
         log::info!("No input source configured for {:?}, skipping", direction);
         return;
     };
-    perform_switch(&target, ddc_backend, power_fallback);
+    perform_switch(&target, ddc_backend, power_fallback, on_switched);
 }
 
 /// Switches directly to `input`, using the monitor's configured
@@ -59,6 +76,7 @@ pub fn handle_manual_switch(
     config: &Configuration,
     ddc_backend: &dyn DdcBackend,
     power_fallback: &dyn PowerFallback,
+    on_switched: &dyn Fn(u16),
 ) {
     let target = SwitchTarget {
         display_index: config.display_index(),
@@ -66,7 +84,7 @@ pub fn handle_manual_switch(
         source_addr: config.on_usb_connect_source_addr,
         vcp_code: config.vcp_code(),
     };
-    perform_switch(&target, ddc_backend, power_fallback);
+    perform_switch(&target, ddc_backend, power_fallback, on_switched);
 }
 
 /// The single consumer of `DaemonEvent`s. Runs until `events`'s sender is
@@ -78,11 +96,12 @@ pub fn run(
     config: &Configuration,
     ddc_backend: &dyn DdcBackend,
     power_fallback: &dyn PowerFallback,
+    on_switched: &dyn Fn(u16),
 ) {
     for event in events {
         match event {
-            DaemonEvent::Trigger(trigger_event) => handle_event(trigger_event, config, ddc_backend, power_fallback),
-            DaemonEvent::ManualSwitch(input) => handle_manual_switch(input, config, ddc_backend, power_fallback),
+            DaemonEvent::Trigger(trigger_event) => handle_event(trigger_event, config, ddc_backend, power_fallback, on_switched),
+            DaemonEvent::ManualSwitch(input) => handle_manual_switch(input, config, ddc_backend, power_fallback, on_switched),
         }
     }
 }
@@ -139,7 +158,7 @@ mod tests {
         };
         let power = FakePower { called: RefCell::new(0) };
 
-        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power);
+        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power, &|_| {});
 
         assert_eq!(*ddc.calls.borrow(), vec![(0, 0x60, 0x11, Some(0x50))]);
         assert_eq!(*power.called.borrow(), 0);
@@ -154,7 +173,7 @@ mod tests {
         };
         let power = FakePower { called: RefCell::new(0) };
 
-        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power);
+        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power, &|_| {});
 
         assert_eq!(ddc.calls.borrow().len(), 2);
         assert_eq!(*power.called.borrow(), 1);
@@ -169,7 +188,7 @@ mod tests {
         };
         let power = FakePower { called: RefCell::new(0) };
 
-        handle_event(TriggerEvent::HostLostFocus, &config, &ddc, &power);
+        handle_event(TriggerEvent::HostLostFocus, &config, &ddc, &power, &|_| {});
 
         assert!(ddc.calls.borrow().is_empty());
     }
@@ -183,7 +202,13 @@ mod tests {
         };
         let power = FakePower { called: RefCell::new(0) };
 
-        handle_manual_switch(InputSource::Symbolic(crate::config::SymbolicInputSource::DisplayPort1), &config, &ddc, &power);
+        handle_manual_switch(
+            InputSource::Symbolic(crate::config::SymbolicInputSource::DisplayPort1),
+            &config,
+            &ddc,
+            &power,
+            &|_| {},
+        );
 
         assert_eq!(*ddc.calls.borrow(), vec![(0, 0x60, 0x0f, Some(0x50))]);
     }
@@ -201,11 +226,56 @@ mod tests {
         tx.send(DaemonEvent::ManualSwitch(InputSource::Symbolic(crate::config::SymbolicInputSource::Hdmi2))).unwrap();
         drop(tx);
 
-        run(rx, &config, &ddc, &power);
+        run(rx, &config, &ddc, &power, &|_| {});
 
         assert_eq!(
             *ddc.calls.borrow(),
             vec![(0, 0x60, 0x11, None), (0, 0x60, 0x12, None)]
         );
+    }
+
+    #[test]
+    fn on_switched_callback_fires_with_the_new_value_on_success() {
+        let config = load(r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1"}"#);
+        let ddc = FakeDdc {
+            calls: RefCell::new(vec![]),
+            fail_first_n: RefCell::new(0),
+        };
+        let power = FakePower { called: RefCell::new(0) };
+        let seen = RefCell::new(vec![]);
+
+        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power, &|value| seen.borrow_mut().push(value));
+
+        assert_eq!(*seen.borrow(), vec![0x11]);
+    }
+
+    #[test]
+    fn on_switched_callback_does_not_fire_when_the_switch_ultimately_fails() {
+        let config = load(r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1"}"#);
+        let ddc = FakeDdc {
+            calls: RefCell::new(vec![]),
+            fail_first_n: RefCell::new(2),
+        };
+        let power = FakePower { called: RefCell::new(0) };
+        let seen = RefCell::new(vec![]);
+
+        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power, &|value| seen.borrow_mut().push(value));
+
+        assert!(seen.borrow().is_empty());
+    }
+
+    #[test]
+    fn on_switched_callback_fires_when_the_power_fallback_retry_succeeds() {
+        let config = load(r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1"}"#);
+        let ddc = FakeDdc {
+            calls: RefCell::new(vec![]),
+            fail_first_n: RefCell::new(1),
+        };
+        let power = FakePower { called: RefCell::new(0) };
+        let seen = RefCell::new(vec![]);
+
+        handle_event(TriggerEvent::HostGainedFocus, &config, &ddc, &power, &|value| seen.borrow_mut().push(value));
+
+        assert_eq!(*seen.borrow(), vec![0x11]);
     }
 }

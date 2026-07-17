@@ -45,11 +45,23 @@ macro_rules! symbolic_input_source {
     }
 }
 
+// The `*Alt` variants below (0x90/0x91/0xD0-0xD2) are LG-firmware-specific VCP
+// values confirmed present in this monitor's capabilities string (see
+// DECISIONS.md #2) alongside the VESA-standard ones above. DECISIONS.md #4's
+// validation matrix tried VCP 0x60 with the alt HDMI1 value (0x90) via NVAPI
+// and it did NOT switch the display ("Não colou") — only the standard value
+// (0x11) worked. These are included so the wizard can label them if a
+// monitor's capabilities list surfaces them, not because they're known to work.
 symbolic_input_source! {
     DisplayPort1: 0x0f
     DisplayPort2: 0x10
     Hdmi1: 0x11
     Hdmi2: 0x12
+    DisplayPort1Alt: 0xd0
+    Dp2UsbCAlt: 0xd1
+    UsbCAlt: 0xd2
+    Hdmi1Alt: 0x90
+    Hdmi2Alt: 0x91
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -189,6 +201,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(config.on_usb_connect.unwrap().value(), 0x11);
+    }
+
+    #[test]
+    fn lg_alt_symbolic_input_sources_resolve_to_their_vcp_values() {
+        let config: Configuration = serde_json::from_str(
+            r#"{"usb_device": "17e9:6000", "on_usb_connect": "Hdmi1Alt", "on_usb_disconnect": "DisplayPort1Alt"}"#,
+        )
+        .unwrap();
+        assert_eq!(config.on_usb_connect.unwrap().value(), 0x90);
+        assert_eq!(config.on_usb_disconnect.unwrap().value(), 0xd0);
     }
 
     #[test]

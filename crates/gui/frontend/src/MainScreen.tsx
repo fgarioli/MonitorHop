@@ -18,13 +18,42 @@ export function MainScreen({ config, onReconfigure }: { config: Configuration; o
     listInputs(displayIndex)
       .then(setInputs)
       .catch((err) => setError(String(err)));
+  }, [displayIndex]);
+
+  // Reads the monitor's real current input once at mount so the "Active"
+  // highlight starts correct. NOT polled on an interval: a real manual-test
+  // session found that periodic reads share the same NVAPI I2C channel
+  // (source address 0x50) as the actual switch write, and a poll landing
+  // near a switch write coincided with the write silently failing to take
+  // effect on the monitor (screen stayed black) despite reporting success.
+  // The current-input-changed event listener below is the live-sync
+  // mechanism for switches this window didn't itself initiate; a stale
+  // highlight from a fully external change (the monitor's own physical
+  // button) is an accepted gap, not silently guessed away. A failed read
+  // here just means "we don't know which input is active right now" —
+  // DDC/CI reads are known to be flaky on real hardware (see
+  // MANUAL_TEST_GUI.md), and this only drives a cosmetic highlight, not a
+  // required capability, so it degrades silently instead of alarming the
+  // user with a raw OS error string.
+  useEffect(() => {
     currentInput(displayIndex)
       .then(setActive)
-      .catch((err) => setError(String(err)));
+      .catch((err) => console.warn("Failed to read current input:", err));
   }, [displayIndex]);
 
   useEffect(() => {
     const unlisten = listen<boolean>("mxkeys-status", (event) => setMxkeysConnected(event.payload));
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  // Keeps the "Active" highlight correct for switches this window didn't
+  // itself initiate — a hotplug trigger (physically toggling the KVM switch)
+  // or the tray's quick-switch menu — by listening for the backend's
+  // confirmation instead of only reading current_input once at mount.
+  useEffect(() => {
+    const unlisten = listen<number>("current-input-changed", (event) => setActive(event.payload));
     return () => {
       unlisten.then((f) => f());
     };

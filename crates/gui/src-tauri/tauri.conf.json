@@ -4,8 +4,14 @@
   "version": "0.1.0",
   "identifier": "dev.display-switch.kvm-switch-gui",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../frontend"
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "../frontend"
+    },
     "devUrl": "http://localhost:1420",
     "frontendDist": "../frontend/dist"
   },

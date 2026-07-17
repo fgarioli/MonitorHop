@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Sender};
 use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
 use winapi::shared::ntdef::LPCWSTR;
@@ -106,6 +107,18 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lpa
     0
 }
 
+/// Window classes are registered per-process, so two watchers running in the
+/// same process (e.g. the switch device and the MX Keys device, each on its
+/// own thread) must not share a class name — the second `RegisterClassW`
+/// call would fail with `ERROR_CLASS_ALREADY_EXISTS`, silently killing that
+/// watcher's message loop for the rest of the process lifetime.
+static NEXT_CLASS_ID: AtomicU32 = AtomicU32::new(0);
+
+fn unique_class_name() -> String {
+    let id = NEXT_CLASS_ID.fetch_add(1, Ordering::Relaxed);
+    format!("KvmSwitchPnPDetectWindowClass{id}")
+}
+
 fn run_message_loop(usb_device: String, sender: Sender<TriggerEvent>) -> Result<()> {
     let mut state = Box::new(WindowState {
         current_devices: read_device_list().unwrap_or_default(),
@@ -113,7 +126,7 @@ fn run_message_loop(usb_device: String, sender: Sender<TriggerEvent>) -> Result<
         sender,
     });
 
-    let class_name: Vec<u16> = OsStr::new("KvmSwitchPnPDetectWindowClass").encode_wide().chain(once(0)).collect();
+    let class_name: Vec<u16> = OsStr::new(&unique_class_name()).encode_wide().chain(once(0)).collect();
     let window_name: Vec<u16> = OsStr::new("KvmSwitchPnPDetectWindow").encode_wide().chain(once(0)).collect();
     let hinstance = unsafe { GetModuleHandleW(std::ptr::null()) };
 
@@ -193,5 +206,11 @@ mod tests {
         let current: HashSet<String> = HashSet::new();
         let new: HashSet<String> = ["aaaa:bbbb".to_string()].into_iter().collect();
         assert!(diff_to_events(&current, &new, "17e9:6000").is_empty());
+    }
+
+    #[test]
+    fn unique_class_name_never_repeats() {
+        let names: HashSet<String> = (0..50).map(|_| unique_class_name()).collect();
+        assert_eq!(names.len(), 50);
     }
 }

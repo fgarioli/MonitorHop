@@ -36,6 +36,33 @@ describe("MainScreen", () => {
     expect(activeButton).toBeDisabled();
   });
 
+  it("degrades gracefully when reading the current input fails, without an inline error", async () => {
+    vi.mocked(invoke)
+      .mockResolvedValueOnce([0x0f, 0x11]) // list_inputs
+      .mockRejectedValueOnce("failed to read current input for display 0: DDC/CI message field length invalid"); // current_input
+
+    render(<MainScreen config={config} onReconfigure={() => {}} />);
+
+    await screen.findByText("HDMI 1");
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("updates the active input highlight when a current-input-changed event arrives", async () => {
+    vi.mocked(invoke)
+      .mockResolvedValueOnce([0x0f, 0x11]) // list_inputs
+      .mockResolvedValueOnce(0x0f); // current_input, starts on DisplayPort 1
+
+    render(<MainScreen config={config} onReconfigure={() => {}} />);
+    await screen.findByText("HDMI 1");
+
+    const [, handler] = vi.mocked(listen).mock.calls.find(([name]) => name === "current-input-changed")!;
+    await waitFor(() => (handler as (event: { payload: number }) => void)({ payload: 0x11 }));
+
+    const activeButton = await screen.findByText("Active");
+    expect(activeButton.closest("li")).toHaveTextContent("HDMI 1");
+  });
+
   it("shows an inline error when switching fails", async () => {
     vi.mocked(invoke)
       .mockResolvedValueOnce([0x0f, 0x11])

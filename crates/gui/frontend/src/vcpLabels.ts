@@ -22,6 +22,15 @@ const VCP_INPUT_LABELS: Record<number, string> = {
   0x10: "DisplayPort 2",
   0x11: "HDMI 1",
   0x12: "HDMI 2",
+  // LG-firmware-specific alternates confirmed present in this monitor's
+  // capabilities string (DECISIONS.md #2), but empirically NOT confirmed to
+  // switch the display via the current NVAPI backend (DECISIONS.md #4 found
+  // the alt HDMI1 value, 0x90, didn't work — only the standard 0x11 did).
+  0x90: "HDMI 1 (LG alt)",
+  0x91: "HDMI 2 (LG alt)",
+  0xd0: "DisplayPort 1 (LG alt)",
+  0xd1: "DP2/USB-C (LG alt)",
+  0xd2: "USB-C (LG alt)",
 };
 
 export function vcpInputLabel(code: number): string {
