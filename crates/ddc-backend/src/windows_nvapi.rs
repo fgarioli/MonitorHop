@@ -34,6 +34,7 @@ fn build_args(monitor_index: u32, code: u8, value: u16, source_addr: Option<u8>)
 
 impl DdcBackend for NvapiBackend {
     fn set_vcp(&self, monitor_index: u32, code: u8, value: u16, source_addr: Option<u8>) -> Result<()> {
+        let _guard = crate::ddc_io_lock();
         let args = build_args(monitor_index, code, value, source_addr);
         log::debug!("Running {:?} {:?}", self.exe_path, args);
         let status = Command::new(&self.exe_path).args(&args).status()?;

@@ -6,6 +6,7 @@ pub struct MacosIoavserviceBackend;
 
 impl DdcBackend for MacosIoavserviceBackend {
     fn set_vcp(&self, monitor_index: u32, code: u8, value: u16, source_addr: Option<u8>) -> Result<()> {
+        let _guard = crate::ddc_io_lock();
         if source_addr.is_some() {
             log::warn!(
                 "source_addr override ({:?}) requested but unsupported on macOS (ddc-hi hardcodes 0x51); ignoring",

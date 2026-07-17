@@ -60,6 +60,7 @@ fn retry<T>(attempts: u32, delay: std::time::Duration, mut f: impl FnMut() -> Re
 
 impl MonitorReader for DdcHiMonitorReader {
     fn enumerate(&self) -> Result<Vec<MonitorInfo>> {
+        let _guard = crate::ddc_io_lock();
         Ok(Display::enumerate()
             .into_iter()
             .enumerate()
@@ -79,6 +80,7 @@ impl MonitorReader for DdcHiMonitorReader {
     /// check. If they disagree, `Configuration::display_index` needs a
     /// manual override (already supported — it's a plain optional field).
     fn input_codes(&self, display_index: u32) -> Result<Vec<u8>> {
+        let _guard = crate::ddc_io_lock();
         retry(3, std::time::Duration::from_millis(50), || {
             let mut displays = Display::enumerate();
             let display = select_display(&mut displays, display_index)?;
@@ -96,6 +98,7 @@ impl MonitorReader for DdcHiMonitorReader {
     /// which is all VCP 0x60's single-byte input codes need (mirrors how
     /// `input_codes` above already treats these codes as plain `u8`s).
     fn current_input(&self, display_index: u32) -> Result<u8> {
+        let _guard = crate::ddc_io_lock();
         const INPUT_SELECT: u8 = 0x60;
         retry(3, std::time::Duration::from_millis(50), || {
             let mut displays = Display::enumerate();

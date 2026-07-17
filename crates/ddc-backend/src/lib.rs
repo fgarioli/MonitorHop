@@ -4,6 +4,23 @@
 //! orchestrator's write path).
 
 use anyhow::Result;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+static DDC_IO_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+/// Serializes all access to the shared DDC/CI I2C channel. Reads
+/// (`MonitorReader`) and writes (`DdcBackend::set_vcp`) contend for the same
+/// physical bus regardless of which Rust type issues the call — a real
+/// manual-test session found a read landing mid-write silently corrupts the
+/// write (screen stayed black, success still reported; see
+/// `docs/IMPROVEMENTS.md` #3). Callers must hold the returned guard for the
+/// full duration of their DDC/CI I/O, not just part of it.
+pub fn ddc_io_lock() -> MutexGuard<'static, ()> {
+    DDC_IO_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 pub trait DdcBackend {
     fn set_vcp(&self, monitor_index: u32, code: u8, value: u16, source_addr: Option<u8>) -> Result<()>;
@@ -51,3 +68,39 @@ pub mod windows_nvapi;
 
 #[cfg(target_os = "macos")]
 pub mod macos_ioavservice;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::Duration;
+
+    /// Proves `ddc_io_lock()` actually serializes callers: thread `a` holds
+    /// the lock across a sleep, thread `b` starts shortly after and must
+    /// block until `a` both entered AND exited its critical section — so the
+    /// recorded order can only be a, A, b, never a, b, A.
+    #[test]
+    fn ddc_io_lock_serializes_concurrent_callers() {
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let order_a = Arc::clone(&order);
+        let order_b = Arc::clone(&order);
+
+        let a = thread::spawn(move || {
+            let _guard = ddc_io_lock();
+            order_a.lock().unwrap().push('a');
+            thread::sleep(Duration::from_millis(50));
+            order_a.lock().unwrap().push('A');
+        });
+        thread::sleep(Duration::from_millis(10));
+        let b = thread::spawn(move || {
+            let _guard = ddc_io_lock();
+            order_b.lock().unwrap().push('b');
+        });
+
+        a.join().unwrap();
+        b.join().unwrap();
+
+        assert_eq!(*order.lock().unwrap(), vec!['a', 'A', 'b']);
+    }
+}
