@@ -13,13 +13,15 @@ impl DdcBackend for MacosIoavserviceBackend {
                 source_addr
             );
         }
-        let mut displays = Display::enumerate();
-        let display = displays
-            .get_mut(monitor_index as usize)
-            .ok_or_else(|| anyhow!("no display at index {}", monitor_index))?;
-        display
-            .handle
-            .set_vcp_feature(code, value)
-            .map_err(|err| anyhow!("failed to set VCP {:#04x}={:#06x}: {:?}", code, value, err))
+        crate::retry(3, std::time::Duration::from_millis(50), || {
+            let mut displays = Display::enumerate();
+            let display = displays
+                .get_mut(monitor_index as usize)
+                .ok_or_else(|| anyhow!("no display at index {}", monitor_index))?;
+            display
+                .handle
+                .set_vcp_feature(code, value)
+                .map_err(|err| anyhow!("failed to set VCP {:#04x}={:#06x}: {:?}", code, value, err))
+        })
     }
 }

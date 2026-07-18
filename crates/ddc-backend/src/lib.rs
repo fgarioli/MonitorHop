@@ -22,6 +22,29 @@ pub fn ddc_io_lock() -> MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Retries a fallible operation up to `attempts` times with a short delay
+/// between tries. DDC/CI over a switch/dongle chain has been observed (real
+/// manual-test session) to intermittently fail with transient errors — a
+/// checksum mismatch and an invalid message-length field, on two separate
+/// reads — that a bare retry resolves. Shared by the read path
+/// (`ddchi_reader`) and, as of IMPROVEMENTS.md #5, the macOS write path
+/// (`macos_ioavservice`) as well.
+pub(crate) fn retry<T>(attempts: u32, delay: std::time::Duration, mut f: impl FnMut() -> Result<T>) -> Result<T> {
+    let mut last_err = None;
+    for attempt in 0..attempts {
+        match f() {
+            Ok(value) => return Ok(value),
+            Err(err) => {
+                last_err = Some(err);
+                if attempt + 1 < attempts {
+                    std::thread::sleep(delay);
+                }
+            }
+        }
+    }
+    Err(last_err.unwrap())
+}
+
 pub trait DdcBackend {
     fn set_vcp(&self, monitor_index: u32, code: u8, value: u16, source_addr: Option<u8>) -> Result<()>;
 }
@@ -102,5 +125,42 @@ mod tests {
         b.join().unwrap();
 
         assert_eq!(*order.lock().unwrap(), vec!['a', 'A', 'b']);
+    }
+
+    #[test]
+    fn retry_returns_ok_immediately_on_first_success() {
+        let calls = std::cell::RefCell::new(0);
+        let result = retry(3, Duration::from_millis(1), || {
+            *calls.borrow_mut() += 1;
+            Ok::<_, anyhow::Error>(42)
+        });
+        assert_eq!(result.unwrap(), 42);
+        assert_eq!(*calls.borrow(), 1);
+    }
+
+    #[test]
+    fn retry_succeeds_after_transient_failures() {
+        let calls = std::cell::RefCell::new(0);
+        let result = retry(3, Duration::from_millis(1), || {
+            *calls.borrow_mut() += 1;
+            if *calls.borrow() < 3 {
+                Err(anyhow::anyhow!("transient"))
+            } else {
+                Ok(42)
+            }
+        });
+        assert_eq!(result.unwrap(), 42);
+        assert_eq!(*calls.borrow(), 3);
+    }
+
+    #[test]
+    fn retry_gives_up_after_exhausting_attempts_and_returns_the_last_error() {
+        let calls = std::cell::RefCell::new(0);
+        let result = retry(3, Duration::from_millis(1), || {
+            *calls.borrow_mut() += 1;
+            Err::<i32, _>(anyhow::anyhow!("attempt {}", calls.borrow()))
+        });
+        assert_eq!(*calls.borrow(), 3);
+        assert_eq!(result.unwrap_err().to_string(), "attempt 3");
     }
 }

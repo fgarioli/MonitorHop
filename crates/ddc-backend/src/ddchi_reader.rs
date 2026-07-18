@@ -35,29 +35,6 @@ fn select_display(displays: &mut [Display], display_index: u32) -> Result<&mut D
 
 pub struct DdcHiMonitorReader;
 
-/// Retries a fallible operation up to `attempts` times with a short delay
-/// between tries. DDC/CI over this monitor's switch/dongle chain has been
-/// observed (real manual-test session) to intermittently fail with transient
-/// errors — a checksum mismatch and an invalid message-length field, on two
-/// separate reads — that a bare retry resolves; the NVAPI write path doesn't
-/// need this because DECISIONS.md #4 already found it reliable once the
-/// source-address override was applied.
-fn retry<T>(attempts: u32, delay: std::time::Duration, mut f: impl FnMut() -> Result<T>) -> Result<T> {
-    let mut last_err = None;
-    for attempt in 0..attempts {
-        match f() {
-            Ok(value) => return Ok(value),
-            Err(err) => {
-                last_err = Some(err);
-                if attempt + 1 < attempts {
-                    std::thread::sleep(delay);
-                }
-            }
-        }
-    }
-    Err(last_err.unwrap())
-}
-
 impl MonitorReader for DdcHiMonitorReader {
     fn enumerate(&self) -> Result<Vec<MonitorInfo>> {
         let _guard = crate::ddc_io_lock();
@@ -81,7 +58,7 @@ impl MonitorReader for DdcHiMonitorReader {
     /// manual override (already supported — it's a plain optional field).
     fn input_codes(&self, display_index: u32) -> Result<Vec<u8>> {
         let _guard = crate::ddc_io_lock();
-        retry(3, std::time::Duration::from_millis(50), || {
+        crate::retry(3, std::time::Duration::from_millis(50), || {
             let mut displays = Display::enumerate();
             let display = select_display(&mut displays, display_index)?;
             let raw = display
@@ -100,7 +77,7 @@ impl MonitorReader for DdcHiMonitorReader {
     fn current_input(&self, display_index: u32) -> Result<u8> {
         let _guard = crate::ddc_io_lock();
         const INPUT_SELECT: u8 = 0x60;
-        retry(3, std::time::Duration::from_millis(50), || {
+        crate::retry(3, std::time::Duration::from_millis(50), || {
             let mut displays = Display::enumerate();
             let display = select_display(&mut displays, display_index)?;
             let value = display
@@ -109,49 +86,5 @@ impl MonitorReader for DdcHiMonitorReader {
                 .map_err(|err| anyhow!("failed to read current input for display {}: {:?}", display_index, err))?;
             Ok(value.sl)
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::cell::RefCell;
-    use std::time::Duration;
-
-    #[test]
-    fn retry_returns_ok_immediately_on_first_success() {
-        let calls = RefCell::new(0);
-        let result = retry(3, Duration::from_millis(1), || {
-            *calls.borrow_mut() += 1;
-            Ok::<_, anyhow::Error>(42)
-        });
-        assert_eq!(result.unwrap(), 42);
-        assert_eq!(*calls.borrow(), 1);
-    }
-
-    #[test]
-    fn retry_succeeds_after_transient_failures() {
-        let calls = RefCell::new(0);
-        let result = retry(3, Duration::from_millis(1), || {
-            *calls.borrow_mut() += 1;
-            if *calls.borrow() < 3 {
-                Err(anyhow!("transient"))
-            } else {
-                Ok(42)
-            }
-        });
-        assert_eq!(result.unwrap(), 42);
-        assert_eq!(*calls.borrow(), 3);
-    }
-
-    #[test]
-    fn retry_gives_up_after_exhausting_attempts_and_returns_the_last_error() {
-        let calls = RefCell::new(0);
-        let result = retry(3, Duration::from_millis(1), || {
-            *calls.borrow_mut() += 1;
-            Err::<i32, _>(anyhow!("attempt {}", calls.borrow()))
-        });
-        assert_eq!(*calls.borrow(), 3);
-        assert_eq!(result.unwrap_err().to_string(), "attempt 3");
     }
 }
