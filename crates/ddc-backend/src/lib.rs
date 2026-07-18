@@ -78,8 +78,11 @@ pub trait MonitorReader {
 pub mod capabilities;
 pub use capabilities::parse_input_codes;
 
-// TODO(v2): linux_ddcutil.rs — wrapper over ddcutil/i2c-dev, which already
-// supports --i2c-source-addr natively (see DECISIONS.md #9). Out of scope.
+// TODO(v2): linux_ddcutil.rs — wrapper over the `ddcutil` CLI, invoked as a
+// subprocess (same pattern as windows_nvapi.rs's Command::new), NOT linked
+// via FFI/libddcutil bindings: ddcutil is GPL-2.0, this project is MIT, and
+// --i2c-source-addr's presence in the public C API is unconfirmed anyway.
+// See DECISIONS.md #9 and IMPROVEMENTS.md #9. Out of scope for this milestone.
 
 #[cfg(any(windows, target_os = "macos"))]
 pub mod ddchi_reader;
