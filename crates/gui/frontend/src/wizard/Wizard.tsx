@@ -13,6 +13,8 @@ interface WizardAnswers {
   monitor: MonitorInfo | null;
   onConnect: number | null;
   onDisconnect: number | null;
+  sourceAddr: number | null;
+  vcpCode: number | null;
 }
 
 const STEP_COUNT = 4;
@@ -23,6 +25,8 @@ const emptyAnswers: WizardAnswers = {
   monitor: null,
   onConnect: null,
   onDisconnect: null,
+  sourceAddr: null,
+  vcpCode: null,
 };
 
 export function Wizard({ onComplete }: { onComplete: (config: Configuration) => void }) {
@@ -32,14 +36,20 @@ export function Wizard({ onComplete }: { onComplete: (config: Configuration) => 
 
   const goBack = () => setStepIndex((i) => Math.max(0, i - 1));
 
-  const finish = async (onConnect: number, onDisconnect: number | null, monitor: MonitorInfo) => {
+  const finish = async (
+    onConnect: number,
+    onDisconnect: number | null,
+    sourceAddr: number | null,
+    vcpCode: number | null,
+    monitor: MonitorInfo,
+  ) => {
     const config: Configuration = {
       usb_device: answers.switchDevice!,
       mxkeys_usb_device: answers.mxkeysDevice || null,
       on_usb_connect: `0x${onConnect.toString(16)}`,
       on_usb_disconnect: onDisconnect !== null ? `0x${onDisconnect.toString(16)}` : null,
-      on_usb_connect_source_addr: null,
-      on_usb_connect_vcp_code: null,
+      on_usb_connect_source_addr: sourceAddr,
+      on_usb_connect_vcp_code: vcpCode,
       display_index: monitor.display_index,
     };
     try {
@@ -86,7 +96,7 @@ export function Wizard({ onComplete }: { onComplete: (config: Configuration) => 
             onSelected={(monitor) => {
               setAnswers((a) =>
                 a.monitor && a.monitor.display_index !== monitor.display_index
-                  ? { ...a, monitor, onConnect: null, onDisconnect: null }
+                  ? { ...a, monitor, onConnect: null, onDisconnect: null, sourceAddr: null, vcpCode: null }
                   : { ...a, monitor },
               );
               setStepIndex(3);
@@ -99,10 +109,12 @@ export function Wizard({ onComplete }: { onComplete: (config: Configuration) => 
             displayIndex={answers.monitor.display_index}
             initialOnConnect={answers.onConnect}
             initialOnDisconnect={answers.onDisconnect}
+            initialSourceAddr={answers.sourceAddr}
+            initialVcpCode={answers.vcpCode}
             onBack={goBack}
-            onComplete={({ onConnect, onDisconnect }) => {
-              setAnswers((a) => ({ ...a, onConnect, onDisconnect }));
-              finish(onConnect, onDisconnect, answers.monitor!);
+            onComplete={({ onConnect, onDisconnect, sourceAddr = null, vcpCode = null }) => {
+              setAnswers((a) => ({ ...a, onConnect, onDisconnect, sourceAddr, vcpCode }));
+              finish(onConnect, onDisconnect, sourceAddr, vcpCode, answers.monitor!);
             }}
           />
         )}

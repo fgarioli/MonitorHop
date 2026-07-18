@@ -34,6 +34,13 @@ vi.mock("./InputMappingStep", () => ({
       <p data-testid="input-initial-connect">{JSON.stringify(initialOnConnect)}</p>
       <p data-testid="input-initial-disconnect">{JSON.stringify(initialOnDisconnect)}</p>
       <button onClick={() => onComplete({ onConnect: 0x11, onDisconnect: null })}>finish</button>
+      <button
+        onClick={() =>
+          onComplete({ onConnect: 0x11, onDisconnect: null, sourceAddr: 0x50, vcpCode: 0x60 })
+        }
+      >
+        finish-with-overrides
+      </button>
       <button onClick={onBack}>back-inputs</button>
     </div>
   ),
@@ -116,6 +123,42 @@ describe("Wizard", () => {
           on_usb_connect: "0x11",
           on_usb_disconnect: null,
           display_index: 0,
+        }),
+      ),
+    );
+  });
+
+  it("defaults the source-address and VCP-code overrides to null when the input step doesn't provide them", async () => {
+    const onComplete = vi.fn();
+    render(<Wizard onComplete={onComplete} />);
+    fireEvent.click(screen.getByText("select-device"));
+    fireEvent.click(screen.getByText("skip-device"));
+    fireEvent.click(screen.getByText("select-monitor-a"));
+    fireEvent.click(screen.getByText("finish"));
+
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          on_usb_connect_source_addr: null,
+          on_usb_connect_vcp_code: null,
+        }),
+      ),
+    );
+  });
+
+  it("passes through the source-address and VCP-code overrides when the input step provides them", async () => {
+    const onComplete = vi.fn();
+    render(<Wizard onComplete={onComplete} />);
+    fireEvent.click(screen.getByText("select-device"));
+    fireEvent.click(screen.getByText("skip-device"));
+    fireEvent.click(screen.getByText("select-monitor-a"));
+    fireEvent.click(screen.getByText("finish-with-overrides"));
+
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          on_usb_connect_source_addr: 0x50,
+          on_usb_connect_vcp_code: 0x60,
         }),
       ),
     );
