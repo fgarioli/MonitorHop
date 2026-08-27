@@ -29,20 +29,20 @@
 
 ---
 
-## Passo 1 — PROTEGER (minutos, risco zero)
+## Passo 1 — PROTEGER ✅ CONCLUÍDO (2026-08-27)
 
 Hoje o único remote é `upstream` → `haimgel/display-switch`, **com URL de push**. Todo o
 trabalho existe apenas no `master` desta máquina.
 
-- [ ] `gh repo create fgarioli/MonitorHop --public --source=. --remote=origin`
-- [ ] `git remote set-url --push upstream no_push`
-- [ ] `git push -u origin master`
-- [ ] Commitar `docs/` inteiro (`DECISIONS.md` 17,6 KB, 6 planos, 4 specs, `preview.webp`)
-- [ ] Reconstruir `docs/IMPROVEMENTS.md` #1-#9 a partir de
-      `docs/superpowers/plans/2026-07-17-improvements-execution.md`, marcando o que já foi
-      resolvido. Isso revalida as 13 referências existentes (3 delas em `.rs`) sem editar código.
-      Itens que seguem **abertos**: #4 (fallback AMD/iGPU) e #6 (índices multi-monitor).
-- [ ] Decidir o destino de `.vscode/` (provavelmente `.gitignore`)
+- [x] `gh repo create fgarioli/MonitorHop --public --source=. --remote=origin`
+- [x] `git remote set-url --push upstream no_push`
+- [x] `git push -u origin master` — 356 commits no remoto
+- [x] Commitar `docs/` inteiro (commit `01651af`)
+- [x] Reconstruir `docs/IMPROVEMENTS.md` #1-#9 a partir de
+      `docs/superpowers/plans/2026-07-17-improvements-execution.md` e dos comentários inline.
+      Numeração original preservada — as 13 referências (3 em `.rs`) voltam a resolver.
+      Itens **abertos**: #4 (fallback AMD/iGPU) e #6 (índices multi-monitor).
+- [x] `.vscode/` no `.gitignore`
 
 ## Passo 2 — RENOMEAR (~1h, mecânico)
 
@@ -67,10 +67,20 @@ quebrar `main.rs` (414 linhas) em `app_state.rs` / `paths.rs` / `tray.rs` /
 
 ## Passo 4 — EMPACOTAR (M)
 
-**Licença (bloqueante para o release):**
-- [ ] Verificar a licença de `github.com/kaleb422/NVapi-write-value-to-monitor`
-- [ ] Se permissiva: `tools/LICENSE-writeValueToDisplay` + atribuição no README
-- [ ] Se não permitir redistribuição: parar e reavaliar (plano B = reimplementar NVAPI em Rust)
+**Licença — VERIFICADO 2026-08-27, risco aceito:**
+
+`github.com/kaleb422/NVapi-write-value-to-monitor` **não declara licença nenhuma**
+(API do GitHub: `license: null`; sem arquivo de licença, 404). Sem licença, o padrão é
+*todos os direitos reservados* — não há permissão de redistribuição.
+
+O binário está no histórico desde `5737a2b`, então o repo público já o redistribui.
+**Decisão do usuário (2026-08-27, após a questão ser levantada): publicar assim mesmo.**
+Risco formal aceito conscientemente; não re-litigar.
+
+- [ ] Mitigação recomendada: `NOTICE` / seção no README creditando `kaleb422` e linkando
+      o repositório de origem — não sana a falta de licença, mas é o mínimo de proveniência
+- [ ] Opcional: abrir issue pedindo ao autor que declare uma licença (MIT/Apache-2.0)
+- [ ] Plano B se ele recusar ou pedir remoção: reimplementar NVAPI em Rust (ver v1.1)
 
 **Bundle:**
 - [ ] `tauri.conf.json` → `bundle.resources` incluindo `tools/writeValueToDisplay.exe`
