@@ -26,8 +26,8 @@ pub(crate) const SEED_DEVICE_DATABASE: &str = r#"{
 }
 "#;
 
-/// Same `%APPDATA%\kvm-switch-gui\` (Windows) / `$HOME/Library/Application
-/// Support/kvm-switch-gui` (macOS) directory as `config_path()` in
+/// Same `%APPDATA%\MonitorHop\` (Windows) / `$HOME/Library/Application
+/// Support/MonitorHop` (macOS) directory as `config_path()` in
 /// `main.rs` — falls back to a CWD-relative path if that directory can't be
 /// resolved, matching that function's existing defensive behavior.
 pub(crate) fn device_database_path() -> PathBuf {

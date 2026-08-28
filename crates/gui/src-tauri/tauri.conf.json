@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "kvm-switch-gui",
+  "productName": "MonitorHop",
   "version": "0.1.0",
-  "identifier": "dev.display-switch.kvm-switch-gui",
+  "identifier": "io.github.fgarioli.monitorhop",
   "build": {
     "beforeDevCommand": {
       "script": "npm run dev",
@@ -18,7 +18,7 @@
   "app": {
     "windows": [
       {
-        "title": "KVM Switch",
+        "title": "MonitorHop",
         "width": 480,
         "height": 640,
         "visible": true

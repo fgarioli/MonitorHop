@@ -1,4 +1,4 @@
-BINARY := kvm-switch-gui
+BINARY := monitorhop
 INTEL_ARCH := x86_64-apple-darwin
 ARM_ARCH := aarch64-apple-darwin
 UNAME_S := $(shell uname -s)

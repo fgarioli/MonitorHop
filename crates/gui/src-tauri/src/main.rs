@@ -33,8 +33,8 @@ pub struct AppState {
 }
 
 /// Resolves and creates the per-OS application-support directory
-/// (`%APPDATA%\kvm-switch-gui` on Windows, `$HOME/Library/Application
-/// Support/kvm-switch-gui` on macOS), returning `None` if the relevant
+/// (`%APPDATA%\MonitorHop` on Windows, `$HOME/Library/Application
+/// Support/MonitorHop` on macOS), returning `None` if the relevant
 /// environment variable isn't set or the directory can't be created —
 /// callers fall back to a CWD-relative path in that case. Shared by
 /// `config_path` below and `device_database::device_database_path`, so both
@@ -49,7 +49,7 @@ pub(crate) fn app_support_dir() -> Option<std::path::PathBuf> {
     #[cfg(not(any(windows, target_os = "macos")))]
     let base: Option<std::path::PathBuf> = None;
 
-    let dir = base?.join("kvm-switch-gui");
+    let dir = base?.join("MonitorHop");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir)
 }
@@ -65,8 +65,8 @@ pub(crate) fn app_support_dir() -> Option<std::path::PathBuf> {
 /// Windows or macOS machine but keeps this defensive rather than panicking.
 pub(crate) fn config_path() -> std::path::PathBuf {
     app_support_dir()
-        .map(|dir| dir.join("kvm-switch-config.json"))
-        .unwrap_or_else(|| std::path::PathBuf::from("kvm-switch-config.json"))
+        .map(|dir| dir.join("config.json"))
+        .unwrap_or_else(|| std::path::PathBuf::from("config.json"))
 }
 
 fn init_logging() -> Result<()> {
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn app_support_dir_uses_appdata_on_windows() {
         let dir = app_support_dir().expect("APPDATA should be set in the test environment");
-        assert!(dir.ends_with("kvm-switch-gui"));
+        assert!(dir.ends_with("MonitorHop"));
         assert!(dir.exists());
     }
 
@@ -408,7 +408,7 @@ mod tests {
     #[test]
     fn app_support_dir_uses_library_application_support_on_macos() {
         let dir = app_support_dir().expect("HOME should be set in the test environment");
-        assert!(dir.ends_with("kvm-switch-gui"));
+        assert!(dir.ends_with("MonitorHop"));
         assert!(dir.to_string_lossy().contains("Library/Application Support"));
     }
 }

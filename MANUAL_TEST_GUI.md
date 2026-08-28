@@ -6,7 +6,7 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 
 ## Setup
 
-1. Delete any existing `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` to
+1. Delete any existing `%APPDATA%\MonitorHop\config.json` to
    force the wizard on first launch.
 2. Confirm `tools/writeValueToDisplay.exe` exists (relative to the repo root
    for `cargo tauri dev`; see `default_exe_path()` in
@@ -26,7 +26,7 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
 5. **Input mapping step:** confirm the listed inputs include `0xF`, `0x11`,
    `0x12` (DisplayPort1/HDMI1/HDMI2 — see DECISIONS.md §2); set "on connect"
    to `0x11` (HDMI1, the Mac's input); leave disconnect unset; click Finish.
-6. Confirm `%APPDATA%\kvm-switch-gui\kvm-switch-config.json` now exists and
+6. Confirm `%APPDATA%\MonitorHop\config.json` now exists and
    contains the selected `usb_device`, `mxkeys_usb_device`,
    `on_usb_connect`, `display_index`.
 7. **Back navigation:** on the input-mapping step, click the new back arrow
@@ -54,7 +54,7 @@ described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
     appears and completes correctly for a device you physically
     unplug/replug.
 12. **Device database editing:** close the app, open
-    `%APPDATA%\kvm-switch-gui\device-database.json` in a text editor,
+    `%APPDATA%\MonitorHop\device-database.json` in a text editor,
     confirm it contains the 4 seeded entries (046d:c52b, 046d, 17e9:6000,
     17e9). Add a new `"vendor:product": "Some Name"` entry for any other
     device you have, save, relaunch the app, and confirm that device now

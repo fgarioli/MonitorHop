@@ -1998,26 +1998,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kvm-switch-gui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ddc-backend",
- "kvm_core",
- "log",
- "power-fallback",
- "serde",
- "serde_json",
- "simplelog",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-single-instance",
- "trigger",
- "winapi",
-]
-
-[[package]]
 name = "kvm_core"
 version = "0.1.0"
 dependencies = [
@@ -2245,6 +2225,26 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "monitorhop"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ddc-backend",
+ "kvm_core",
+ "log",
+ "power-fallback",
+ "serde",
+ "serde_json",
+ "simplelog",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-single-instance",
+ "trigger",
+ "winapi",
 ]
 
 [[package]]
