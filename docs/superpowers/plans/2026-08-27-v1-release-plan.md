@@ -44,17 +44,30 @@ trabalho existe apenas no `master` desta máquina.
       Itens **abertos**: #4 (fallback AMD/iGPU) e #6 (índices multi-monitor).
 - [x] `.vscode/` no `.gitignore`
 
-## Passo 2 — RENOMEAR (~1h, mecânico)
+## Passo 2 — RENOMEAR ✅ CONCLUÍDO (2026-08-27, commits `138d840` + `864eac9`)
 
-- [ ] `crates/gui/src-tauri/tauri.conf.json`: `productName` → `MonitorHop`,
-      `identifier` → `io.github.fgarioli.monitorhop`
-- [ ] Nome do binário e do crate `gui` → `monitorhop`
-- [ ] `app_support_dir()` em `main.rs` → `%APPDATA%\MonitorHop\`
-      (só existe um usuário instalado — sem migração)
-- [ ] Título da janela em `app.windows[0].title`
-- [ ] Testes que assertam `ends_with("kvm-switch-gui")` (`main.rs:402`)
-- [ ] `CLAUDE.md`: atualizar caminhos de config e comandos de build
-- [ ] **Gate:** 40/40 Rust + 52/52 frontend verdes → commit isolado
+- [x] `tauri.conf.json`: `productName` → `MonitorHop`,
+      `identifier` → `io.github.fgarioli.monitorhop`, título da janela
+- [x] Cargo package e binário → `monitorhop` (+ `Cargo.lock`, `BINARY` do Makefile)
+- [x] `app_support_dir()` → `%APPDATA%\MonitorHop\` /
+      `$HOME/Library/Application Support/MonitorHop`
+- [x] `config_path()` → `config.json` (o diretório já carrega o nome do produto)
+- [x] `package.json` / `package-lock.json` → `monitorhop-frontend`; `<h1>` do `MainScreen`
+- [x] Os 2 testes que assertavam `ends_with("kvm-switch-gui")`
+- [x] `CLAUDE.md` e `MANUAL_TEST_GUI.md`
+- [x] **Gate:** 40/40 Rust + 52/52 frontend + `tsc --noEmit` limpo
+
+**Não renomeados, de propósito:** `.superpowers/sdd/`, `docs/superpowers/plans|specs/` e
+`DECISIONS.md` são registro histórico — descrevem o que era verdade quando foram escritos.
+Reescrever nomes lá dentro falsificaria o histórico.
+
+**Config migrada:** `%APPDATA%\kvm-switch-gui\` foi copiado (não movido) para
+`%APPDATA%\MonitorHop\`, preservando a configuração real validada à mão
+(`17e9:6000` / `046d:c52b` / displayport1↔hdmi1). O diretório antigo segue intacto.
+
+**Pendente de verificação:** `productName` (`MonitorHop`) difere do nome do binário do
+cargo (`monitorhop`). O Tauri 2 renomeia o binário no bundle, mas isso só é exercitado
+por `cargo tauri build` — confirmar no passo 4 e, se reclamar, definir `mainBinaryName`.
 
 ## Passo 3 — REFATORAR (P/M)
 
