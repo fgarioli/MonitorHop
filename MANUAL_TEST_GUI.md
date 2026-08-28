@@ -1,118 +1,157 @@
-# Manual Test: GUI wizard, manual switching, tray, MX Keys status
+# Release gate: end-to-end test of the installed build
 
-Run this after `cargo tauri build --debug` succeeds, on the real hardware
-described in `DECISIONS.md` (LG 34GL750, NVIDIA GPU, USB switch
-17e9:6000, MX Keys with Unifying receiver).
+This is the **blocking gate for tagging v0.1.0** (step 5 of
+`docs/superpowers/plans/2026-08-27-v1-release-plan.md`).
 
-## Setup
+It runs against the **installed NSIS artifact**, never against
+`cargo tauri dev`. That distinction is the whole point: the dev build resolves
+`tools/writeValueToDisplay.exe` relative to the repo, so it cannot detect a
+packaging mistake. Only an installed build exercises the exe-relative lookup in
+`default_exe_path()` (`crates/gui/src-tauri/src/paths.rs`) against the copy NSIS
+actually placed on disk.
 
-1. Delete any existing `%APPDATA%\MonitorHop\config.json` to
-   force the wizard on first launch.
-2. Confirm `tools/writeValueToDisplay.exe` exists (relative to the repo root
-   for `cargo tauri dev`; see `default_exe_path()` in
-   `crates/gui/src-tauri/src/main.rs` for the exe-relative resolution a real
-   installed build uses instead).
+Every step is pass/fail. **A single failure blocks the tag** — fix it, rebuild,
+and start again from Part 1.
 
-## Wizard flow
+## Prerequisites
 
-1. Launch `cargo tauri dev` (or the built binary).
-2. **Switch device step:** click Start, then physically toggle the USB
-   switch (or unplug/replug it) so it disappears and reappears; click "I
-   plugged it in"; confirm exactly one new device ID appears and select it.
-3. **MX Keys step:** repeat with the Unifying receiver plugged into any USB
-   port on this host.
-4. **Monitor step:** confirm the LG 34GL750 appears in the list (by model
-   name or EDID id); select it.
-5. **Input mapping step:** confirm the listed inputs include `0xF`, `0x11`,
-   `0x12` (DisplayPort1/HDMI1/HDMI2 — see DECISIONS.md §2); set "on connect"
-   to `0x11` (HDMI1, the Mac's input); leave disconnect unset; click Finish.
-6. Confirm `%APPDATA%\MonitorHop\config.json` now exists and
-   contains the selected `usb_device`, `mxkeys_usb_device`,
-   `on_usb_connect`, `display_index`.
-7. **Back navigation:** on the input-mapping step, click the new back arrow
-   (top-left). Confirm it returns to the monitor step with the previously
-   selected monitor showing a checkmark. Click back again to the MX Keys
-   step, then again to the switch-device step; confirm the switch-device and
-   MX Keys steps restart their plug-detection flow from scratch (this is
-   expected — see this plan's Task 8 back-navigation design).
-8. **Inline errors:** temporarily unplug the monitor's DDC connection (or
-   otherwise make a DDC call fail) and confirm the wizard shows a red inline
-   error message anchored under the relevant step, not a floating toast, and
-   that it clears on the next successful action.
-9. **Friendly labels:** confirm the switch-device/MX-Keys candidate list
-   shows "Logitech (046d:c52b)" or "DisplayLink (17e9:6000)" style labels
-   instead of raw hex vendor:product ids, and the input-mapping step's
-   dropdowns show "DisplayPort 1"/"HDMI 1" instead of `0xf`/`0x11`.
-10. **Immediate device detection:** with the KVM switch and MX Keys receiver
-    already plugged in (do NOT unplug them first), open the switch-device
-    step. Confirm both devices appear immediately in a list, each labeled
-    with a friendly name and id (e.g. "DisplayLink Dock/Switch
-    (17e9:6000)"), with no need to click "Start" or replug anything.
-    Confirm clicking "Use this" on one selects it and advances the wizard.
-11. **Diff-flow fallback still works:** on the same step, click "Not sure
-    which one? Plug it in now"; confirm the old plug-in-now flow still
-    appears and completes correctly for a device you physically
-    unplug/replug.
-12. **Device database editing:** close the app, open
-    `%APPDATA%\MonitorHop\device-database.json` in a text editor,
-    confirm it contains the 4 seeded entries (046d:c52b, 046d, 17e9:6000,
-    17e9). Add a new `"vendor:product": "Some Name"` entry for any other
-    device you have, save, relaunch the app, and confirm that device now
-    shows the new name in the wizard's connected-device list.
-13. **Corrupted database degrades gracefully:** with the app closed, edit
-    `device-database.json` to contain invalid JSON (e.g. delete a closing
-    brace) and save. Relaunch the app and open the switch-device step;
-    confirm the connected-device list still appears with the seeded devices
-    (DisplayLink Dock/Switch and Logitech MX Keys / Unifying Receiver) still
-    showing their friendly names, the custom device added in item 12 now
-    shows as a raw hex id (since the corrupted file's custom entry is lost
-    and the fallback uses only seeded names), and nothing crashes or shows a
-    blocking error. Restore the file afterward.
-14. **Without restarting the app**, right-click the tray icon; confirm the
-    "Switch to 0x..." quick-switch items are now present (they weren't there
-    before the wizard finished, since no config existed at startup). Click
-    one; confirm the monitor switches. Then physically toggle the USB switch;
-    confirm the monitor switches via the hardware trigger path too. This is
-    the first-run regression check: before the final-review fix, the switch
-    pipeline never started until the next restart because the `DaemonEvent`
-    receiver was silently dropped when no config existed at process launch.
+- The hardware from `docs/DECISIONS.md`: LG 34GL750, active NVIDIA GPU, USB
+  switch `17e9:6000`, MX Keys with Unifying receiver.
+- DDC/CI enabled in the monitor's own OSD menu.
+- The installer, either from `cargo tauri build` (output at
+  `target/release/bundle/nsis/MonitorHop_0.1.0_x64-setup.exe`) or downloaded
+  from the GitHub release.
 
-## Main screen
+### Back up your real configuration first
 
-1. Confirm the main screen loads (not the wizard) on a second launch.
-2. Confirm the MX Keys status line reflects reality: unplug the receiver,
-   confirm it flips to "not connected" within a few seconds; replug it,
-   confirm it flips back.
-3. Confirm the input that matches the monitor's actual current source shows
-   an "Active" (disabled) button and a highlighted border, without clicking
-   anything — this comes from the new `current_input` DDC read, not from
-   memory of the last button clicked. Manually switch the monitor's input
-   using the monitor's own physical buttons/remote (bypassing this app
-   entirely), then reopen or refresh the main screen; confirm the
-   highlighted "Active" input updates to match reality.
-4. Click "Switch" next to `0x11`; confirm the monitor switches to HDMI1.
-5. Click "Switch" next to `0xF`; confirm the monitor switches back to
-   DisplayPort1.
-6. Physically toggle the USB switch; confirm the monitor still switches via
-   the hardware trigger path (not just the manual button) — this is the
-   regression check that Task 4's shared `perform_switch`/`orchestrator::run`
-   didn't break the original MVP behavior.
+The test deliberately deletes the config to force the wizard. Save it:
 
-## Tray and autostart
+```powershell
+Copy-Item "$env:APPDATA\MonitorHop\config.json" "$env:USERPROFILE\Desktop\config.json.bak"
+```
 
-1. Close the window (X button); confirm the process keeps running (check
-   Task Manager) and the tray icon remains.
-2. Left-click the tray icon; confirm the window restores.
-3. Right-click the tray icon; confirm "Open"/"Quit" appear and both work.
-4. Confirm an autostart entry was created (Windows: `Startup` folder or
-   `HKCU\...\Run`, depending on how `tauri-plugin-autostart` implements it on
-   this OS) after first launch.
-5. Quit via the tray menu; confirm the process actually exits (not just
-   hidden).
+Restore it at the end if you want your working setup back.
 
-## Known non-goals for this milestone
+## Part 1 — Install
 
-- No automated test covers this end-to-end flow — it requires physically
-  toggling the USB switch/receiver and observing the monitor and tray, same
-  limitation as `MANUAL_TEST.md`.
-- macOS is not tested here at all (see this plan's Global Constraints).
+| # | Step | Expected |
+|---|---|---|
+| 1.1 | Verify the download hash: `Get-FileHash .\MonitorHop_0.1.0_x64-setup.exe -Algorithm SHA256` | Matches the release's `SHA256SUMS.txt` (skip when testing a local build) |
+| 1.2 | Remove any previous install: uninstall from **Settings → Apps**, then delete `%APPDATA%\MonitorHop\` and `%LOCALAPPDATA%\MonitorHop\` if they survive | Both directories gone — this is a first-install test, not an upgrade |
+| 1.3 | Double-click the installer | Windows shows **"Windows protected your PC"**; **More info → Run anyway** proceeds. This confirms the README's SmartScreen workaround is accurate |
+| 1.4 | Complete the installer | **No UAC / administrator prompt appears at any point** |
+| 1.5 | `ls "$env:LOCALAPPDATA\MonitorHop"` | Contains `monitorhop.exe` (lowercase — the cargo binary name) |
+| 1.6 | `ls "$env:LOCALAPPDATA\MonitorHop\tools"` | **Contains `writeValueToDisplay.exe`.** This is the packaging fix under test; if it is missing, switching will fail in Part 3 |
+| 1.7 | Check **Settings → Apps** | "MonitorHop" is listed with publisher "Fernando Garioli" |
+
+## Part 2 — First run and the wizard
+
+Launch from the Start menu, not from `target/`.
+
+1. The **wizard** appears (no config exists yet).
+2. **Trigger device step:** with the USB switch and the MX Keys receiver
+   already plugged in, confirm both appear **immediately** in a list with
+   friendly labels ("DisplayLink Dock/Switch (17e9:6000)", "Logitech MX Keys /
+   Unifying Receiver (046d:c52b)") — no "Start" click, no replugging.
+   Select the switch.
+3. **Fallback flow:** before moving on, click "Not sure which one? Plug it in
+   now", physically unplug/replug a device, and confirm the older diff-based
+   flow still identifies it correctly.
+4. **MX Keys step:** select the Unifying receiver.
+5. **Monitor step:** the LG 34GL750 appears by model name or EDID id. Select it.
+6. **Input mapping step:** the listed inputs include DisplayPort 1 / HDMI 1 /
+   HDMI 2 (`0xF`, `0x11`, `0x12` — DECISIONS.md §2) shown as **friendly names,
+   not raw hex**. Set "on connect" to HDMI 1. Click Finish.
+7. **Back navigation:** re-enter the wizard steps with the back arrow and
+   confirm the monitor step still shows the previous selection checked.
+8. Confirm `%APPDATA%\MonitorHop\config.json` now exists and contains
+   `usb_device`, `mxkeys_usb_device`, `on_usb_connect`, `display_index`.
+   Note the path: `%APPDATA%`, **not** the install directory.
+9. **Device database:** quit the app, open
+   `%APPDATA%\MonitorHop\device-database.json`, confirm the four seeded
+   entries (`046d:c52b`, `046d`, `17e9:6000`, `17e9`). Add a
+   `"vendor:product": "Some Name"` line for any other device you own, relaunch,
+   and confirm the wizard shows that name.
+10. **Corrupted database degrades gracefully:** quit, break the JSON (delete a
+    closing brace), relaunch. The device list still appears with the seeded
+    names, your custom entry falls back to a raw hex id, and nothing crashes or
+    blocks. Restore the file afterwards.
+
+## Part 3 — Switching (the packaging-critical part)
+
+This is what the dev build cannot validate. Every switch here runs
+`writeValueToDisplay.exe` **from the install directory**.
+
+1. **Manual switch:** on the main screen, click Switch next to HDMI 1 — the
+   monitor changes input. Click DisplayPort 1 — it changes back.
+2. **Tray quick-switch without restarting:** right-click the tray icon; the
+   "Switch to …" items are present even though no config existed at launch.
+   Click one; the monitor switches. (First-run regression check: the
+   `DaemonEvent` receiver used to be dropped when the process started
+   config-less.)
+3. **Hardware trigger:** physically toggle the USB switch. The monitor switches
+   on its own.
+4. **Active-input read:** the input matching the monitor's real current source
+   shows as "Active" and highlighted. Change the input using the monitor's own
+   physical buttons, then reopen the window; the highlight follows reality.
+5. **MX Keys status:** unplug the receiver — the status line flips to "not
+   connected" within a few seconds; replug — it flips back.
+
+If switching fails here but worked under `cargo tauri dev`, the cause is
+packaging, not logic: check step 1.6.
+
+## Part 4 — Tray, autostart, reboot
+
+1. Close the window with **X** — the process keeps running (Task Manager) and
+   the tray icon stays.
+2. Left-click the tray icon — the window restores.
+3. Right-click — "Open" and "Quit" both work.
+4. Confirm the autostart entry exists:
+   `Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"`
+   (or the user's Startup folder, depending on how `tauri-plugin-autostart`
+   registers it).
+5. **Reboot the machine.** After login, MonitorHop is running in the tray, and
+   a hardware toggle of the USB switch still switches the monitor. This proves
+   the config is found from an unpredictable working directory — the reason
+   `config_path()` resolves against `%APPDATA%` rather than the CWD.
+
+## Part 5 — Updater sanity
+
+Only meaningful once a release exists at the configured endpoint.
+
+1. With v0.1.0 installed and the latest release also v0.1.0, launch the app:
+   **no update banner appears**, and the log records "no update available".
+2. Confirm the log has no `updater unavailable` warning — that would mean the
+   plugin failed to initialise rather than finding nothing.
+
+Full install/restart of a newer version is exercised for real at v0.1.1; it
+cannot be tested before a second release exists.
+
+## Part 6 — Uninstall
+
+1. Uninstall from **Settings → Apps**. No administrator prompt.
+2. `%LOCALAPPDATA%\MonitorHop\` is gone, **including the `tools\` subdirectory**
+   (the generated `installer.nsi` deletes the exe and then `RMDir`s `tools`).
+3. `%APPDATA%\MonitorHop\config.json` may survive — that is intended, so a
+   reinstall keeps the user's setup. Note whether it did.
+4. Restore your backed-up config if you want your working setup back.
+
+## Sign-off
+
+| Part | Result | Notes |
+|---|---|---|
+| 1 Install | | |
+| 2 Wizard | | |
+| 3 Switching | | |
+| 4 Tray/autostart/reboot | | |
+| 5 Updater | | |
+| 6 Uninstall | | |
+
+Tag `v0.1.0` only when Parts 1–4 and 6 pass. Part 5 is advisory at v0.1.0.
+
+## Known non-goals
+
+- Nothing here is automated. It needs a human to toggle a physical switch and
+  look at a monitor.
+- macOS and Linux are not covered — they are not shipped in v0.1.0.
+- Non-NVIDIA GPUs are not covered; there is no working backend for them.

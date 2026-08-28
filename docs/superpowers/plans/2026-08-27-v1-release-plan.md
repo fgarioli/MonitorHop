@@ -169,19 +169,32 @@ Risco formal aceito conscientemente; não re-litigar.
 
 ## Passo 5 — GATE E2E (bloqueante)
 
-- [ ] Adaptar `MANUAL_TEST_GUI.md` (118 linhas, já cobre wizard/main/tray/autostart) para
-      rodar contra o **artefato NSIS instalado**, não contra `cargo tauri dev`
-- [ ] Executar: instalar → primeira execução → wizard detecta monitores e inputs →
-      hotplug do MX Keys troca o input → switch manual → fecha para a bandeja →
-      reboot e autostart
-- [ ] O passo que só este teste cobre: o `writeValueToDisplay.exe` foi realmente empacotado
-      e `default_exe_path()` o encontra ao lado do binário instalado
+- [x] Adaptar `MANUAL_TEST_GUI.md` para rodar contra o **artefato NSIS instalado**,
+      não contra `cargo tauri dev` — reescrito como roteiro de gate em 6 partes com
+      tabela de sign-off. Instalador em
+      `target/release/bundle/nsis/MonitorHop_0.1.0_x64-setup.exe` (3,3 MB).
+- [ ] **Executar o roteiro no hardware real** (só o usuário pode: exige alternar o
+      switch USB e olhar o monitor). Partes 1-4 e 6 precisam passar; a parte 5
+      (updater) é consultiva na v0.1.0 porque ainda não existe um release anterior.
+- [ ] O passo que só este teste cobre: item 1.6 (`%LOCALAPPDATA%\MonitorHop	ools      writeValueToDisplay.exe` existe) somado à parte 3 (a troca de fato funciona a
+      partir do binário instalado). Se a troca falhar aqui mas funcionar no
+      `cargo tauri dev`, a causa é empacotamento, não lógica.
 
 ## Passo 6 — RELEASE
 
-- [ ] `tauri.conf.json` version = `0.1.0`
+- [x] `tauri.conf.json` version = `0.1.0` (confirmado no passo 4)
+- [ ] **Depende de você:** adicionar os dois secrets em
+      <https://github.com/fgarioli/MonitorHop/settings/secrets/actions> antes da tag —
+      sem eles o `release.yml` falha no `cargo tauri build`:
+      - `TAURI_SIGNING_PRIVATE_KEY` = conteúdo de
+        `<scratchpad>/monitorhop-updater.key`
+      - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = vazio
+      A chave privada está **apenas** no scratchpad desta sessão (o `.gitignore` já
+      bloqueia `*.key`). Guarde uma cópia fora dele: perdê-la significa que nenhuma
+      versão futura consegue se assinar para os usuários já instalados.
 - [ ] `git tag v0.1.0 && git push origin v0.1.0`
-- [ ] Conferir que o Release trouxe instalador + `latest.json` e que o hash bate
+- [ ] Conferir que o Release trouxe instalador + `latest.json` + `SHA256SUMS.txt` e que
+      o hash bate com o do arquivo publicado
 
 ---
 
