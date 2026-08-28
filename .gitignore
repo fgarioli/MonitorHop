@@ -3,3 +3,6 @@ target
 
 # Editor
 .vscode/
+
+# Updater signing keys - never commit these
+*.key

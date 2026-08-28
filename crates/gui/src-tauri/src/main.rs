@@ -10,6 +10,7 @@ mod device_database;
 mod paths;
 mod platform;
 mod tray;
+mod updater;
 
 use app_state::AppState;
 use paths::config_path;
@@ -73,6 +74,7 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState {
             events: Mutex::new(tx),
             mxkeys_status_item: Mutex::new(None),
@@ -80,6 +82,8 @@ fn main() {
             tray_icon: Mutex::new(None),
         })
         .setup(move |app| {
+            updater::spawn_update_check(app.handle().clone());
+
             if let Some((rx, config)) = startup_consumer {
                 let handle = app.handle().clone();
                 spawn_consumer(rx, config, handle);
@@ -151,6 +155,7 @@ fn main() {
             commands::switch_input,
             commands::current_input,
             commands::load_device_database,
+            updater::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

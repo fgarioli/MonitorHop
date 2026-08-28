@@ -33,3 +33,8 @@ export const loadDeviceDatabase = () =>
     const parsed = JSON.parse(raw) as Record<string, string>;
     return Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key.toLowerCase(), value]));
   });
+
+/** Downloads and installs the pending update, then restarts into it. Never
+ * resolves on success — the process is replaced — so callers only need to
+ * handle rejection. */
+export const installUpdate = () => invoke<void>("install_update");

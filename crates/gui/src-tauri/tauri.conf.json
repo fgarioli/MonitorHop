@@ -25,9 +25,18 @@
       }
     ]
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4OTFCQTMxQjc5QkFBMwpSV1NqdW5rYm94dUpEdjdaR3F2azdPNWNnby9IeHRBYUF6M0JpeG54QnNJV2k1MWdaVVNZTGdhMwo=",
+      "endpoints": [
+        "https://github.com/fgarioli/MonitorHop/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": ["icons/icon.ico", "icons/icon.png"],
     "publisher": "Fernando Garioli",
     "copyright": "Copyright (c) 2020 Haim Gelfenbeyn, (c) 2026 Fernando Garioli. MIT.",
