@@ -1,220 +1,154 @@
-[![build](https://github.com/haimgel/display-switch/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/haimgel/display-switch/actions)
-[![GitHub license](https://img.shields.io/github/license/haimgel/display-switch)](https://github.com/haimgel/display-switch/blob/main/LICENSE)
+# MonitorHop
 
-# Turn a $30 USB switch into a full-featured KVM
+Your keyboard hops between computers. Your monitors should follow.
 
-This utility watches for USB device connect/disconnect events and switches monitor inputs via DDC/CI. This turns
-a simple USB switch into a full-fledged KVM solution: press one button on your USB switch and all your monitors
-connect to a different input.
+MonitorHop watches for a USB device connecting or disconnecting — a USB switch,
+or a Logitech Unifying receiver moving between machines — and switches your
+monitors to the matching input over DDC/CI. Press the button on a $30 USB
+switch, and the screens come with you.
 
-It is supposed to be installed on all computers that could be connected to these monitors, since the app only switches
-monitors "one way" and relies on itself running on the other computers to switch it "the other way" as needed.
- 
-## Platforms supported
+Install it on every computer sharing the monitors. Each one switches the
+displays to *its own* input when it sees the keyboard arrive.
 
-The app should function on MacOS, Windows, and Linux.
+## Requirements
 
-## Installation
- * Linux and Windows: download and extract the files from the releases page and place them where
-   you see fit.
- * MacOS: `display_switch` can be installed with Homebrew:
-   ```bash
-   brew install haimgel/tools/display_switch
-   ```
+Read these before downloading — v0.1.0 is deliberately narrow.
 
-## Configuration
+| | |
+|---|---|
+| **OS** | Windows 10 or 11. macOS and Linux are not supported yet (see [Status](#status)). |
+| **GPU** | **NVIDIA, and it must be the active GPU.** See [Why NVIDIA](#why-nvidia). |
+| **Monitor** | Must support DDC/CI, and it must be enabled in the monitor's own OSD menu. Many monitors ship with it off. |
+| **Trigger** | Any USB device that moves between computers: a USB switch, or an MX Keys / Unifying receiver. |
 
-The configuration is pretty similar on all platforms:
+## Install
 
-On MacOS: the configuration file is expected in `~/Library/Preferences/display-switch.ini`
-On Windows: the configuration file is expected in `%APPDATA%\display-switch\display-switch.ini`
-On Linux: the configuration file is expected in `$XDG_CONFIG_HOME/display-switch/display-switch.ini` or `~/.config/display-switch/display-switch.ini`
+Download the installer from the [latest release][releases], run it, and follow
+the setup wizard.
 
-Configuration file settings:
+It installs for the current user only — no administrator prompt, and nothing is
+written outside your own profile.
 
-```ini
-  usb_device = "1050:0407"
-  on_usb_connect = "Hdmi1"
-  on_usb_disconnect = "Hdmi2"
+### About the SmartScreen warning
+
+The installer is not code-signed, so Windows will show **"Windows protected your
+PC"**. To proceed: click **More info**, then **Run anyway**.
+
+A code-signing certificate costs a few hundred dollars a year, which is hard to
+justify for a project like this one. Instead, every release publishes a
+`SHA256SUMS.txt` next to the installer so you can verify the download yourself:
+
+```powershell
+Get-FileHash .\MonitorHop_0.1.0_x64-setup.exe -Algorithm SHA256
 ```
 
-`usb_device` is which USB device to watch (vendor id / device id in hex), and `on_usb_connect` is which monitor input
-to switch to, when this device is connected. Supported values are `Hdmi1`, `Hdmi2`, `DisplayPort1`, `DisplayPort2`, `Dvi1`, `Dvi2`, `Vga1`.
-If your monitor has an USB-C port, it's usually reported as `DisplayPort2`. Input can also be specified as a "raw"
-decimal or hexadecimal value: `on_usb_connect = 0x10`
+Compare the output against the release's `SHA256SUMS.txt`. If they match, the
+file is exactly what the build produced.
 
-The optional `on_usb_disconnect` settings allows to switch in the other direction when the USB device is disconnected.
-Note that the preferred way is to have this app installed on both computers. Switching "away" is problematic: if the
-other computer has put the monitors to sleep, they will switch immediately back to the original input.
+## Setup
 
-### Different inputs on different monitors
-`display-switch` supports per-monitor configuration: add one or more monitor-specific configuration sections to set
-monitor-specific inputs. For example:
+On first launch, a wizard walks you through four steps:
 
-```ini
-on_usb_connect = "DisplayPort2"
-on_usb_disconnect = "Hdmi1"
+1. **Trigger device** — pick the USB device that moves between computers.
+   Devices already plugged in show up immediately; unplug and replug to
+   identify one you're unsure about.
+2. **MX Keys** — optionally pick a Logitech MX Keys or Unifying receiver, so
+   the app can show you whether the keyboard is currently on this machine.
+3. **Monitor** — pick which detected display to control.
+4. **Inputs** — pick which input to switch to when the device connects, and
+   which when it disconnects.
 
-[monitor1]
-monitor_id = "len"
-on_usb_connect = "DisplayPort1"
+Step 4 has an **Advanced** section for monitors that need a non-standard DDC
+recipe: a source-address override and a VCP feature code override. Most
+monitors don't need either. If switching silently does nothing, that section is
+where the fix lives — see [DECISIONS.md](docs/DECISIONS.md) #4 for the
+reasoning and a worked example (LG 34GL750).
 
-[monitor2]
-monitor_id = "dell"
-on_usb_connect = "hdmi2"
-```
+## Using it
 
-`monitor_id` specifies a case-insensitive substring to match against the monitor ID. For example, 'len' would match
-`LEN P27u-10 S/N 1144206897` monitor ID. If more than one section has a match, a first one will be used.
-`on_usb_connect` and `on_usb_disconnect`, if defined, take precedence over global defaults.
+- **Automatic** — plug the trigger device in and the monitors switch. That's
+  the whole point.
+- **Manual** — the main window lists the monitor's inputs; click one to switch.
+  The tray menu has the same list.
+- **Tray** — closing the window minimises to the system tray; the app keeps
+  running so hotplug switching still works. Quit from the tray menu.
+- **Autostart** — the app registers itself to start at login.
 
-_Tips for Windows_: monitors can be renamed in the Registry at
-`\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\DISPLAY\{MODEL_ID}\{CONNECTION_ID}`. Edit the `DeviceDesc` value and change the name after the last semicolon. This is especially helpful in case they are all just "Generic PnP Monitor".
+Configuration lives at `%APPDATA%\MonitorHop\config.json`. It's written by the
+wizard; there's no need to edit it by hand.
 
-### Running external commands
-`display-switch` supports running external commands upon connection or disconnection of USB devices. This configuration
-can be global (runs every time a configured USB device is connected or disconnected) or per-monitor (runs only when
-a given monitor is being switched):
+## Why NVIDIA
 
-```ini
-usb_device = "1050:0407"
-on_usb_connect = "Hdmi1"
-on_usb_disconnect = "DisplayPort2"
-on_usb_connect_execute = "echo connected"
-on_usb_disconnect_execute = "echo disconnected"
+The hard part of DDC/CI on Windows isn't sending the command — it's the **I2C
+source address**. Windows' own `SetVCPFeature` API forces source address `0x51`
+and gives you no way to change it. Some monitors ignore input-switch commands
+that arrive that way.
 
-[monitor1]
-monitor_id="foobar"
-on_usb_connect_execute = "echo usb connected, monitor 'foobar' being switched"
-on_usb_disconnect_execute = "'c:\\program files\\my app.exe' --parameter"
-```
+Overriding it to `0x50` is what makes switching work, and reaching that override
+means going around the Windows API. MonitorHop does it through NVIDIA's NVAPI,
+via a small helper tool. AMD's ADL exposes raw I2C on *discrete* GPUs, but that
+path isn't implemented and isn't validated on integrated graphics at all.
 
-Notes: 
-1. External applications are executed as the same user that started `display-switch`. 
-2. This program supports splitting supplied configuration into application name and parameters, but no other shell features are supported.
-3. If the application path contains spaces, surround the full file path with single quotes.
-4. On Windows, escape the backslashes (replace \ with \\, see the example above).
+So: no active NVIDIA GPU, no switching. On a laptop in iGPU/Eco mode, switching
+to the NVIDIA GPU is currently the only known fix. The app detects this case and
+says so rather than failing silently.
 
-### USB Device IDs
+## Status
 
-#### Windows
-To locate the ID of your USB device ID on Windows:
-1. Open Device Manager
-2. Locate the USB device, view the properties
-3. Switch to the *Details* tab and select *Hardware IDs* in the Property dropdown
-4. You should see a value similar to `HID\VID_046D&PID_C52B&MI_00` (the exact values will differ) - the USB device ID is a combination of the *Vendor ID* and the *Product ID* - for example, in this case it would be `046D:C52B`
+v0.1.0 is a real, working release within a deliberately narrow scope. What isn't
+there yet:
 
-#### MacOS
-To locate the ID of your USB device ID on MacOS, open a terminal and run the following:
-```bash
-brew install lsusb
+- **macOS** — the code exists and is cfg-gated, but has never been compiled or
+  run on a Mac. Not shipped.
+- **Linux** — not implemented at all. Planned via the `ddcutil` CLI rather than
+  linking libddcutil, which is GPL-2.0 and would be incompatible with this
+  project's MIT license.
+- **AMD / Intel graphics** — no working backend. See [Why NVIDIA](#why-nvidia).
+- **Multi-monitor** — one display is controlled. The display-index handling in a
+  multi-monitor NVIDIA setup is a known open risk
+  ([IMPROVEMENTS.md](docs/IMPROVEMENTS.md) #6).
+- **Changing your configuration** requires restarting the app; there's no
+  hot-reload.
 
-$ lsusb > a
-<switch the usb dock here>
-$ lsusb > b
-$ opendiff a b
-```
-In the command output, the highlighted lines show you which USB IDs are most relevant.
-
-
-For a full list of USB devices:
-```
-system_profiler SPUSBDataType
-```
-**Important**: The format for your display-switch.ini is VendorID:ProductID. VendorID is displyed *second* in the `system_profiler` output
-
-#### Linux
-Requires additional packages, install via: `sudo apt install libxi-dev xorg-dev`
-
-To locate the ID of your USB device on Linux, first install `lsusb`, which your Linux
-distro should have a package for. (On Debian, Ubuntu and RedHat, the package name is `usbutils`.)
-Then, in a terminal, run the following:
-```
-$ lsusb > a
-<switch the usb dock here>
-$ lsusb > b
-$ diff -u a b
-```
-The diff output will show which USB IDs are most relevant.
-
-## Logging
-
-* On MacOS: the log file is written to `/Users/USERNAME/Library/Logs/display-switch/display-switch.log`
-* On Windows: the log file is written to `%LOCALAPPDATA%\display-switch\display-switch.log`
-* On Linux: The log file is written to `$XDG_DATA_HOME/display-switch/display-switch.log`
- or `~/.local/share/display-switch/display-switch.log`
+The version number reflects this. 1.0.0 is reserved for when that matrix fills
+in. [IMPROVEMENTS.md](docs/IMPROVEMENTS.md) tracks the open items and
+[DECISIONS.md](docs/DECISIONS.md) records why things are the way they are.
 
 ## Building from source
 
-### Windows
+```bash
+cargo install tauri-cli --version "^2"    # once
 
-[Install Rust](https://www.rust-lang.org/tools/install), then do `cargo build --release`
+cd crates/gui/frontend && npm install && cd ../../..
+cd crates/gui/src-tauri && cargo tauri dev     # run
+cd crates/gui/src-tauri && cargo tauri build   # release installer
+```
 
-### MacOS
-
-[Install Xcode](https://developer.apple.com/xcode/), [install Rust](https://www.rust-lang.org/tools/install), then do
-`cargo build --release` 
-
-### Linux
-
-[Install Rust](https://www.rust-lang.org/tools/install), then do `cargo build --release`
-
-## Running on startup
-
-### Windows
-
-Copy `display_switch.exe` from `target\release` (where it was built in the previous step) to 
-`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`.
-
-### MacOS
+Tests:
 
 ```bash
-  # Get your INI file in order! (see above)
-  cp target/release/display_switch /usr/local/bin/
-  cp dev.haim.display-switch.daemon.plist ~/Library/LaunchAgents/
-  launchctl load ~/Library/LaunchAgents/dev.haim.display-switch.daemon.plist
-```
-### Linux
-Copy built executable:
-
-```bash
-  cp target/release/display_switch /usr/local/bin/
-```
-Enable read/write access to i2c devices for users in `i2c` group. Run as root :
-
-```bash
-groupadd i2c
-echo 'KERNEL=="i2c-[0-9]*", GROUP="i2c"' >> /etc/udev/rules.d/10-local_i2c_group.rules
-udevadm control --reload-rules && udevadm trigger
+cargo test --workspace                             # Rust
+cd crates/gui/frontend && npx vitest run           # frontend
 ```
 
-Then add your user to the i2c group :
+## Credits
 
-```
-sudo usermod -aG i2c $(whoami)
-```
+MonitorHop is a fork of **[display-switch][upstream]** by Haim Gelfenbeyn, which
+originated the idea of driving DDC/CI input switching from USB hotplug events.
+The USB hotplug detection in particular descends closely from that project. It
+has since been rewritten around a Tauri GUI, a setup wizard and an NVAPI-based
+write path, and no longer shares the original's configuration format.
 
-Create a systemd unit file in your user directory (`/home/$USER/.config/systemd/user/display-switch.service`) with contents
+`tools/writeValueToDisplay.exe` is **[NVapi-write-value-to-monitor][nvapitool]**
+by kaleb422, which does the actual NVAPI I2C write. Bundled unmodified, with
+thanks. It carries no license statement of its own; if you are the author and
+would like it removed or relicensed, please open an issue.
 
-```
-[Unit]
-Description=Display switch via USB switch
+## License
 
-[Service]
-ExecStart=/usr/local/bin/display_switch
-Type=simple
-StandardOutput=journal
-Restart=always
+MIT — see [LICENSE](LICENSE). Copyright (c) 2020 Haim Gelfenbeyn (original
+work), copyright (c) 2026 Fernando Garioli (this fork).
 
-[Install]
-WantedBy=default.target
-```
-
-Create the config file at `/home/$USER/.config/display-switch/display-switch.ini`.
-Then enable the service with
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable display-switch.service
-systemctl --user start display-switch.service
-```
+[releases]: https://github.com/fgarioli/MonitorHop/releases/latest
+[upstream]: https://github.com/haimgel/display-switch
+[nvapitool]: https://github.com/kaleb422/NVapi-write-value-to-monitor

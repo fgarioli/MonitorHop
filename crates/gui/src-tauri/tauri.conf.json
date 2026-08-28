@@ -27,6 +27,19 @@
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/icon.ico", "icons/icon.png"]
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "publisher": "Fernando Garioli",
+    "copyright": "Copyright (c) 2020 Haim Gelfenbeyn, (c) 2026 Fernando Garioli. MIT.",
+    "shortDescription": "Switch monitor inputs when your keyboard hops between computers",
+    "longDescription": "MonitorHop turns a USB switch into a KVM: it watches for a USB device connecting or disconnecting and switches your monitors to the matching input over DDC/CI. Requires an NVIDIA GPU and a DDC/CI-capable monitor.",
+    "resources": {
+      "../../../tools/writeValueToDisplay.exe": "tools/writeValueToDisplay.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

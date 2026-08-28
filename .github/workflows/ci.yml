@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Windows-only: this is the sole platform MonitorHop v0.1.0 targets, and the
+# macOS modules are cfg-gated so they would not be compiled by a macOS runner
+# without a real macOS backend behind them anyway. See
+# docs/superpowers/plans/2026-08-27-v1-release-plan.md.
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins 1.89.0; dtolnay's action honours it.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: crates/gui/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: crates/gui/frontend
+        run: npm ci
+
+      - name: Typecheck frontend
+        working-directory: crates/gui/frontend
+        run: npx tsc --noEmit
+
+      - name: Test frontend
+        working-directory: crates/gui/frontend
+        run: npx vitest run
+
+      # The GUI crate's build script needs the frontend's dist/ to exist.
+      - name: Build frontend
+        working-directory: crates/gui/frontend
+        run: npm run build
+
+      - name: Test workspace
+        run: cargo test --workspace
+
+      - name: Check for warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+        continue-on-error: true
