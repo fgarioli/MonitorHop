@@ -31,7 +31,7 @@ pub(crate) const SEED_DEVICE_DATABASE: &str = r#"{
 /// `main.rs` — falls back to a CWD-relative path if that directory can't be
 /// resolved, matching that function's existing defensive behavior.
 pub(crate) fn device_database_path() -> PathBuf {
-    crate::app_support_dir()
+    crate::paths::app_support_dir()
         .map(|dir| dir.join("device-database.json"))
         .unwrap_or_else(|| PathBuf::from("device-database.json"))
 }

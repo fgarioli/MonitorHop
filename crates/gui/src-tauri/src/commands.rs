@@ -4,9 +4,10 @@ use kvm_core::config::{Configuration, InputSource};
 use kvm_core::orchestrator::DaemonEvent;
 use serde::Serialize;
 
-use crate::{
-    build_quick_switch_items, config_path, spawn_consumer, spawn_mxkeys_trigger, spawn_switch_trigger, AppState,
-};
+use crate::app_state::AppState;
+use crate::paths::config_path;
+use crate::platform::{spawn_consumer, spawn_mxkeys_trigger, spawn_switch_trigger};
+use crate::tray::build_quick_switch_items;
 
 /// `MonitorInfo` isn't `Serialize` (it lives in `ddc-backend`, which has no
 /// reason to depend on `serde`) — this DTO is the frontend-facing shape.
