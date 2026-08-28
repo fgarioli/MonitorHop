@@ -29,6 +29,10 @@ the setup wizard.
 It installs for the current user only — no administrator prompt, and nothing is
 written outside your own profile.
 
+Once installed, the app checks for a newer release on startup and offers it in
+a banner. Updates are signed, and nothing installs without you clicking the
+button — it will not restart itself out from under you.
+
 ### About the SmartScreen warning
 
 The installer is not code-signed, so Windows will show **"Windows protected your

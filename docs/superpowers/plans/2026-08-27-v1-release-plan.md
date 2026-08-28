@@ -65,9 +65,10 @@ Reescrever nomes lá dentro falsificaria o histórico.
 `%APPDATA%\MonitorHop\`, preservando a configuração real validada à mão
 (`17e9:6000` / `046d:c52b` / displayport1↔hdmi1). O diretório antigo segue intacto.
 
-**Pendente de verificação:** `productName` (`MonitorHop`) difere do nome do binário do
-cargo (`monitorhop`). O Tauri 2 renomeia o binário no bundle, mas isso só é exercitado
-por `cargo tauri build` — confirmar no passo 4 e, se reclamar, definir `mainBinaryName`.
+**Verificado no passo 4:** `productName` (`MonitorHop`) difere do nome do binário do cargo
+(`monitorhop`) sem gerar atrito — `cargo tauri build` produziu
+`MonitorHop_0.1.0_x64-setup.exe` a partir de `monitorhop.exe` sem reclamar.
+`mainBinaryName` não foi necessário.
 
 ## Passo 3 — REFATORAR ✅ CONCLUÍDO (2026-08-27, commit `5284a8f`)
 
@@ -97,7 +98,27 @@ própria seção de testes do spec exige.
 Adicionar Linux depois (`IMPROVEMENTS.md` #9) passa a ser `platform/linux.rs` + um par de
 `cfg` no `platform/mod.rs`, sem tocar em `main.rs`, `commands.rs` ou `device_database.rs`.
 
-## Passo 4 — EMPACOTAR (M)
+## Passo 4 — EMPACOTAR ✅ CONCLUÍDO (2026-08-27, commits `4f71456` + `81854c9`)
+
+**Verificado com build real** (`cargo tauri build`, 4m07s, exit 0):
+
+- `MonitorHop_0.1.0_x64-setup.exe` (3,3 MB) + `.sig` (420 B) gerados
+- O `installer.nsi` gerado (linhas 641-642) contém
+  `CreateDirectory "$INSTDIR\tools"` + `File /a "/oname=tools\writeValueToDisplay.exe"`,
+  e o desinstalador o remove (linhas 761/773). **A lacuna de bundling está fechada** —
+  é exatamente o caminho que `default_exe_path()` procura.
+- `productName` `MonitorHop` com binário `monitorhop.exe`: **sem atrito**, o Tauri resolve
+  sozinho. `mainBinaryName` não foi necessário.
+- CI verde no `master` nos dois commits (runner `windows-latest` limpo).
+
+**Ainda depende de você:** adicionar os dois secrets no repositório antes da primeira tag —
+`TAURI_SIGNING_PRIVATE_KEY` (conteúdo do arquivo de chave privada, gerado fora do repo) e
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (vazio). Sem eles o `release.yml` falha no passo que
+monta o `latest.json`, de propósito.
+
+---
+
+### Detalhamento do que foi feito
 
 **Licença — VERIFICADO 2026-08-27, risco aceito:**
 
@@ -109,40 +130,41 @@ O binário está no histórico desde `5737a2b`, então o repo público já o red
 **Decisão do usuário (2026-08-27, após a questão ser levantada): publicar assim mesmo.**
 Risco formal aceito conscientemente; não re-litigar.
 
-- [ ] Mitigação recomendada: `NOTICE` / seção no README creditando `kaleb422` e linkando
-      o repositório de origem — não sana a falta de licença, mas é o mínimo de proveniência
+- [x] Mitigação aplicada: a seção **Credits** do README credita `kaleb422`, linka o
+      repositório de origem e diz explicitamente que o binário não carrega licença própria,
+      convidando o autor a pedir remoção. Não sana a falta de licença; é o mínimo de proveniência.
 - [ ] Opcional: abrir issue pedindo ao autor que declare uma licença (MIT/Apache-2.0)
 - [ ] Plano B se ele recusar ou pedir remoção: reimplementar NVAPI em Rust (ver v1.1)
 
 **Bundle:**
-- [ ] `tauri.conf.json` → `bundle.resources` incluindo `tools/writeValueToDisplay.exe`
+- [x] `tauri.conf.json` → `bundle.resources` incluindo `tools/writeValueToDisplay.exe`
       (hoje ausente; admitido no doc-comment de `default_exe_path`, `main.rs:99-101`)
-- [ ] `bundle.targets: ["nsis"]`, escopo per-user (coerente com `%APPDATA%` + `HKCU\Run`)
-- [ ] `bundle.publisher`, `bundle.copyright`, `shortDescription`
+- [x] `bundle.targets: ["nsis"]`, escopo per-user (coerente com `%APPDATA%` + `HKCU\Run`)
+- [x] `bundle.publisher`, `bundle.copyright`, `shortDescription`
 
 **Updater:**
-- [ ] `tauri-plugin-updater` + `tauri signer generate`
-- [ ] Chave pública no `tauri.conf.json`; privada como secret do repo
-- [ ] Endpoint apontando para `latest.json` no GitHub Releases
+- [x] `tauri-plugin-updater` + `tauri signer generate`
+- [x] Chave pública no `tauri.conf.json`; privada como secret do repo
+- [x] Endpoint apontando para `latest.json` no GitHub Releases
 
 **CI:**
-- [ ] Apagar `.github/CODEOWNERS` (atribui tudo a `@haimgel`), `dependabot.yml`, `release.yml`
+- [x] Apagar `.github/CODEOWNERS` (atribui tudo a `@haimgel`), `dependabot.yml`, `release.yml`
       e `workflows/build.yml` (roda `./target/release/display_switch --version`, binário extinto)
-- [ ] Novo `release.yml`: tag `v*` → `windows-latest` → `cargo test --workspace` +
+- [x] Novo `release.yml`: tag `v*` → `windows-latest` → `cargo test --workspace` +
       testes do frontend → `tauri build` → assina → publica Release com NSIS + `latest.json`
-- [ ] Opcional: `ci.yml` rodando testes em todo push
+- [x] `ci.yml` rodando testes em todo push
 
 **Docs e limpeza:**
-- [ ] Reescrever `README.md` (hoje são 220 linhas do upstream, com badges do CI do `haimgel`,
+- [x] Reescrever `README.md` (hoje são 220 linhas do upstream, com badges do CI do `haimgel`,
       link de licença dele e documentação do config `.ini` que este fork não usa)
       — precisa cobrir: o que é, **requisito GPU NVIDIA**, requisito DDC/CI,
       aviso do SmartScreen + hash SHA-256, atribuição ao `display-switch` e ao `kaleb422`
-- [ ] `LICENSE`: manter `Copyright (c) 2020 Haim Gelfenbeyn` (exigência do MIT);
+- [x] `LICENSE`: manter `Copyright (c) 2020 Haim Gelfenbeyn` (exigência do MIT);
       adicionar linha de copyright própria
-- [ ] Apagar `MANUAL_TEST.md` (37 linhas, roda `cargo run -p kvm-switch-daemon`, crate extinto)
-- [ ] Apagar `config/kvm-switch.example.ini` e `display-switch.ini` (resíduos da era INI)
-- [ ] `CLAUDE.md`: corrigir o requisito "GUI em todo OS suportado" para refletir a decisão #2
-- [ ] Erro de GPU ausente já existe (`windows_nvapi.rs:39-47`, commit `f191ba1`) — avaliar
+- [x] Apagar `MANUAL_TEST.md` (37 linhas, roda `cargo run -p kvm-switch-daemon`, crate extinto)
+- [x] Apagar `config/kvm-switch.example.ini` e `display-switch.ini` (resíduos da era INI)
+- [x] `CLAUDE.md`: reescrito por inteiro (a seção Main Components descrevia o layout de crate único do upstream — nenhum daqueles arquivos existe). Corrigido o requisito "GUI em todo OS suportado" para refletir a decisão #2
+- [x] Erro de GPU ausente já existe (`windows_nvapi.rs:39-47`, commit `f191ba1`) — avaliar
       surfaçá-lo também na primeira execução/wizard, não só na hora do switch
 
 ## Passo 5 — GATE E2E (bloqueante)
