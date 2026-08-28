@@ -72,7 +72,7 @@ export function MainScreen({ config, onReconfigure }: { config: Configuration; o
   return (
     <div className="flex h-full flex-col gap-5 p-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">KVM Switch</h1>
+        <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">MonitorHop</h1>
         <button
           onClick={onReconfigure}
           aria-label="Reconfigure"
