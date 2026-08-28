@@ -69,14 +69,33 @@ Reescrever nomes lá dentro falsificaria o histórico.
 cargo (`monitorhop`). O Tauri 2 renomeia o binário no bundle, mas isso só é exercitado
 por `cargo tauri build` — confirmar no passo 4 e, se reclamar, definir `mainBinaryName`.
 
-## Passo 3 — REFATORAR (P/M)
+## Passo 3 — REFATORAR ✅ CONCLUÍDO (2026-08-27, commit `5284a8f`)
 
-Seguir `docs/superpowers/specs/2026-07-18-gui-platform-module-restructure-design.md`:
-quebrar `main.rs` (414 linhas) em `app_state.rs` / `paths.rs` / `tray.rs` /
-`platform/{windows,macos}.rs`.
+Seguiu `docs/superpowers/specs/2026-07-18-gui-platform-module-restructure-design.md`.
+`main.rs` foi de 414 para 157 linhas:
 
-- [ ] Manter os módulos macOS compilando por revisão (não há Mac para verificar)
-- [ ] **Gate:** 40/40 testes verdes, sem mudança de comportamento → commit isolado
+| arquivo | linhas | conteúdo |
+|---|---|---|
+| `main.rs` | 157 | entrypoint Tauri + `init_logging` + `mod` |
+| `app_state.rs` | 26 | `AppState` |
+| `paths.rs` | 101 | `app_support_dir`, `config_path`, `default_exe_path` + testes |
+| `tray.rs` | 38 | `build_quick_switch_items` |
+| `platform/mod.rs` | 20 | dispatch por `cfg` |
+| `platform/windows.rs` | 63 | os 3 spawners Windows |
+| `platform/macos.rs` | 62 | os 3 spawners macOS |
+
+- [x] **Gate:** `cargo build --workspace` limpo, **sem avisos novos**; 40/40 Rust; 52/52 frontend
+- [x] macOS verificado por diff (não compila aqui): os 3 corpos são **byte-idênticos** ao original
+- [x] Ausência de mudança de comportamento **verificada, não presumida**: todo corpo de função
+      movido e o struct `AppState` foram diffados contra o `main.rs` original — todos verbatim
+
+**Desvio do spec:** ele previa `pub use windows::*;` em `platform/mod.rs`, o que emite aviso
+(as funções são `pub(crate)`, então nada público o bastante é reexportado). Usado
+`pub(crate) use`, que reflete a visibilidade real e mantém o build sem avisos — como a
+própria seção de testes do spec exige.
+
+Adicionar Linux depois (`IMPROVEMENTS.md` #9) passa a ser `platform/linux.rs` + um par de
+`cfg` no `platform/mod.rs`, sem tocar em `main.rs`, `commands.rs` ou `device_database.rs`.
 
 ## Passo 4 — EMPACOTAR (M)
 
