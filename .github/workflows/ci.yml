@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 # Windows-only: this is the sole platform MonitorHop v0.1.0 targets, and the
